@@ -1,0 +1,46 @@
+.user-info {
+  margin: 10px;
+  display: flex;
+  flex-direction: column;
+
+  gap: 10px;
+}
+.user-info div {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.user-info div h3 {
+  width: 70px;
+}
+.user-info div p {
+  height: 25px;
+  width: 220px;
+  padding: 2px;
+  border: solid 1px;
+  overflow: hidden;
+}
+.purchase-card {
+  display: flex;
+  align-items: last baseline;
+  justify-content: space-between;
+  padding: 10px;
+  margin-right: 20px;
+}
+.purchase-card-id {
+  width: 150px;
+  overflow: hidden;
+}
+.purchase-card-status {
+  width: 100px;
+  overflow: hidden;
+}
+.purchase-card-button {
+  width: 60px;
+  overflow: hidden;
+}
+.Profile-Map {
+  display: flex;
+  flex-wrap: wrap;
+  
+}

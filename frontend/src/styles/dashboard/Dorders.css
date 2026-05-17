@@ -1,0 +1,20 @@
+.Order-Card{
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.Order-Data{
+  border-right: 1px solid;
+  height: 330px;
+  width:400px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 5px;
+}
+.Order-Data-Holder{
+  display: flex;
+}
+.Order-Strong{
+  width: 70px;
+}

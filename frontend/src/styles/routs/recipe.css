@@ -1,0 +1,69 @@
+.Recipe-page {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+  padding: 30px;
+  flex-wrap: wrap; /* allows wrapping on smaller screens */
+}
+
+.Recipe-Data {
+  width: 60%;
+  min-width: 300px;
+}
+
+.Recipe-Image-Wrap {
+  position: relative;
+  width: 35%;
+  min-width: 250px;
+  max-width: 500px;
+  height: 70vh;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.Recipe-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s ease;
+}
+
+/* Second image for hover fade */
+.hover-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  object-fit: cover;
+}
+
+.Recipe-Image-Wrap:hover .hover-img {
+  opacity: 1;
+}
+
+.Recipe-Image-Wrap:hover .primary-img {
+  transform: scale(1.05);
+}
+
+/* Mobile / small screen adjustments */
+@media screen and (max-width: 900px) {
+  .Recipe-page {
+    flex-direction: column;
+    padding: 20px;
+  }
+
+  .Recipe-Data, 
+  .Recipe-Image-Wrap {
+    width: 100%;
+  }
+
+  .Recipe-Image-Wrap {
+    height: 50vh;
+  }
+}

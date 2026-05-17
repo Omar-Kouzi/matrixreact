@@ -1,0 +1,111 @@
+.Navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100vw;
+  background-color: var(--accent);
+  padding: 10px;
+}
+
+.Navbar-Icon {
+  width: 60px;
+}
+
+/* Desktop nav */
+.Navigators {
+  margin-right: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 450px;
+}
+
+/* Hamburger button */
+.Navbar-Toggle {
+  display: none;
+  cursor: pointer;
+  color: white;
+}
+
+/* Icons column */
+.Navigators-Icons {
+  display: flex;
+  flex-direction: column;
+  width: 40px;
+  justify-content: space-between;
+}
+
+/* Sidebar */
+.Navigators-Responsive {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 260px;
+  background-color: var(--accent);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 20px;
+  padding-left: 40px;
+  padding-right: 20px;
+  z-index: 101;
+
+  transform: translateX(100%);
+  transition: transform 0.35s ease;
+}
+
+.Navigators-Responsive.open {
+  transform: translateX(0);
+}
+
+/* Overlay */
+.Overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  visibility: hidden;
+  transition: 0.3s;
+  z-index: 100;
+}
+
+.Overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Close button */
+.Close-Btn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  cursor: pointer;
+  color: white;
+}
+
+/* Responsive */
+@media screen and (max-width: 600px) {
+  .Navigators {
+    display: none;
+  }
+
+  .Navbar-Toggle {
+    display: block;
+    right: 20px;
+    position: absolute;
+  }
+  .Navigators-Icons {
+    width: 110px;
+  }
+}
+
+@media screen and (min-width: 601px) {
+  .Navigators-Responsive,
+  .Overlay {
+    display: none;
+  }
+}

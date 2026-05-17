@@ -1,0 +1,137 @@
+/* Import fonts */
+@import url("https://fonts.googleapis.com/css2?family=Zain:ital,wght@0,200;0,300;0,400;0,700;0,800;0,900;1,300;1,400&display=swap");
+/* pages styles */
+@import url(./styles/routs/login.css);
+@import url(./styles/routs/home.css);
+@import url(./styles/routs/recipes.css);
+@import url(./styles/routs/recipe.css);
+@import url(./styles/routs/profile.css);
+
+/* dasbboard styles */
+@import url(./styles/dashboard/Drecipes.css);
+@import url(./styles/dashboard/Dorders.css);
+@import url(./styles/dashboard/Dabout.css);
+@import url(./styles/dashboard/Dhome.css);
+@import url(./styles/dashboard/Dcontact.css);
+
+/* components styles */
+@import url(./styles/components/Navbar.css);
+@import url(./styles/components/footer.css);
+
+/* colors */
+/* :root[data-theme="light"] {
+  --text: #090606;
+  --background: #faf5f7;
+  --primary: #33000c;
+  --secondary: #d194a3;
+  --accent: #ce788c;
+}
+:root[data-theme="dark"] {
+  --text: #f9f6f6;
+  --background: #0a0507;
+  --primary: #ffccd8;
+  --secondary: #6b2e3d;
+  --accent: #873145;
+} */
+:root {
+  --text: #f9f6f6;
+  --background: #0a0507;
+  --primary: #ffccd8;
+  --secondary: #5b2e6b;
+  --accent: #6f3187;
+}
+/* :root {
+  --text: #000000;
+  --background: #d6b71c;
+  --primary: #565247;
+  --secondary: #756225;
+  --accent: #cdae47;
+  $black: #000000ff;
+$lime-cream: #EDFA71ff;
+$sunbeam-yellow: #FFF200ff;
+$spring-laser: #56ED16ff;
+$lime-moss: #7B9F28ff;
+} */
+* {
+  font-family: "Zain", sans-serif;
+  font-weight: 400;
+  padding: 0;
+  margin: 0;
+  user-select: none;
+  /* border: solid 1px #f9f6f6; */
+  outline: red 1px splid;
+}
+
+a,
+p,
+div,
+h1,
+h2 {
+  color: var(--text);
+  text-decoration: none;
+}
+html {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--background);
+}
+::-webkit-scrollbar {
+  display: none;
+}
+button {
+  padding: 5px 5px;
+  background-color: var(--primary);
+  border-radius: 5px;
+  -moz-transition: all 0.2s ease-in;
+  -o-transition: all 0.2s ease-in;
+  -webkit-transition: all 0.2s ease-in;
+  transition: all 0.2s ease-in;
+}
+button:hover {
+  background-color: var(--secondary);
+  cursor: pointer;
+}
+.page {
+  min-height: 80vh;
+  background: var(--background);
+}
+
+/* Hide the actual file input */
+input[type="file"] {
+  display: none;
+}
+
+/* Custom button for file input */
+.custom-file-button {
+  display: inline-block;
+  background-color: var(--primary);
+  border: none;
+  border-radius: 5px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.2s ease-in;
+}
+
+.custom-file-button:hover {
+  background-color: var(--secondary);
+}
+
+/* Optional: preview container for selected files */
+.file-preview {
+  display: flex;
+  gap: 10px;
+  margin-top: 5px;
+}
+.file-preview img {
+  width: 80px;
+  border-radius: 5px;
+}
+input {
+  padding: 8px 12px;
+  width: 300px;
+  border-radius: 5px;
+  border: var(--secondary);
+  margin-top: 5px;
+  font-size: 19px;
+}

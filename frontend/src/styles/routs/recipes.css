@@ -1,0 +1,127 @@
+.Filter-Wraper {
+  padding: 10px;
+}
+.Filter {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 400px;
+}
+
+.Recipes-Grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding-left: 10px;
+  padding-right: 10px;
+  justify-content: center;
+}
+
+.Recipe-Card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  width: 230px;
+  height: 320px;
+  border-radius: 10px;
+  background-color: black;
+  flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.Recipe-Image-Wrap {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  border-radius: 10px 10px 0 0;
+  overflow: hidden;
+}
+
+.Recipe-Card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s ease;
+}
+
+/* 🔹 Second image hidden initially */
+.hover-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+/* 🔹 Slight zoom effect on hover */
+.Recipe-Card:hover .primary-img {
+  transform: scale(1.05);
+}
+
+.Recipe-Card-Name {
+  text-align: center;
+  margin-top: 5px;
+  color: white;
+}
+
+.Recipe-Card-Button {
+  width: 95%;
+  margin-bottom: 10px;
+  padding: 5px;
+  border-radius: 5px;
+  cursor: pointer;
+  background-color: #333;
+  color: white;
+  border: none;
+  text-align: center;
+}
+.Recipe-Image-Wrap {
+  position: relative;
+}
+
+.Recipe-Unavailable {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+
+  background: rgb(255, 0, 0);
+  color: rgb(0, 0, 0);
+
+  text-align: center;
+  font-weight: bold;
+  padding: 6px 0;
+
+  letter-spacing: 1px;
+}
+/* Responsive tweaks */
+@media screen and (max-width: 1100px) {
+  .Recipe-Card {
+    width: 210px;
+  }
+}
+
+@media screen and (max-width: 950px) {
+  .Recipe-Card {
+    width: 200px;
+  }
+}
+
+@media screen and (max-width: 800px) {
+  .Recipe-Card {
+    width: 180px;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .Recipe-Card {
+    width: 150px;
+  }
+
+  .Recipe-Card-img {
+    height: 150px;
+  }
+}

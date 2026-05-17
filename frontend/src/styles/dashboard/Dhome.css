@@ -1,0 +1,13 @@
+.Dhome-page {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+}
+.Logo-Backround-uploader {
+  display: flex;
+  gap: 30px;
+}
+.Logo-Backround-uploader div {
+  display: flex;
+  flex-direction: column;
+}
