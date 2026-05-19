@@ -1,41 +1,78 @@
 import { useEffect, useState } from "react";
+
 import { getRecipes } from "../assets/firebase/firestore";
+
 import { useNavigate } from "react-router-dom";
+
+import SecureLS from "secure-ls";
+
+const ls = new SecureLS({
+  encodingType: "aes",
+});
 
 const Recipes = () => {
   const [recipes, setRecipes] = useState([]);
+
   const [search, setSearch] = useState("");
+
   const [sort, setSort] = useState("");
+
+  const [filterType, setFilterType] = useState("published");
+
   const navigate = useNavigate();
 
+  const uid = ls.get("uid");
+
+  // ================= FETCH RECIPES =================
   useEffect(() => {
     const fetchRecipes = async () => {
       try {
         const allRecipes = await getRecipes();
-        setRecipes(allRecipes);
+
+        // ================= PUBLISHED =================
+        const publishedRecipes = allRecipes.filter(
+          (recipe) =>
+            recipe.status === "approved" && recipe.visibility === "public",
+        );
+
+        // ================= MY RECIPES =================
+        const myRecipes = allRecipes.filter(
+          (recipe) => recipe.authorId === uid,
+        );
+
+        // ================= SET =================
+        if (filterType === "myrecipes") {
+          setRecipes(myRecipes);
+        } else {
+          setRecipes(publishedRecipes);
+        }
       } catch (error) {
         console.error("Error fetching recipes:", error);
       }
     };
 
     fetchRecipes();
-  }, []);
+  }, [filterType, uid]);
 
+  // ================= FILTERS =================
   const processedRecipes = recipes
-    .filter((recipe) =>
-      recipe.title?.toLowerCase().includes(search.toLowerCase())
-    )
+    .filter((recipe) => {
+      const matchesSearch = recipe.title
+        ?.toLowerCase()
+        .includes(search.toLowerCase());
+
+      return matchesSearch;
+    })
 
     .sort((a, b) => {
+      // ================= NAME =================
       if (sort === "name") {
         return a.title.localeCompare(b.title);
       }
 
+      // ================= NEWEST =================
       if (sort === "newest") {
-        return (
-          new Date(b.createdAt || 0) -
-          new Date(a.createdAt || 0)
-        );
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
       }
 
       return 0;
@@ -43,10 +80,12 @@ const Recipes = () => {
 
   return (
     <div className="Recipes-page page">
+      {/* ================= FILTERS ================= */}
       <details className="Filter-Wraper">
         <summary>filter</summary>
 
         <div className="Filter">
+          {/* SEARCH */}
           <input
             type="text"
             placeholder="Search recipes..."
@@ -54,14 +93,26 @@ const Recipes = () => {
             onChange={(e) => setSearch(e.target.value)}
           />
 
+          {/* SORT */}
+          <div className="Custom-Dropdown">
+            <select value={sort} onChange={(e) => setSort(e.target.value)}>
+              <option value="">Sort By</option>
+
+              <option value="name">Name (A-Z)</option>
+
+              <option value="newest">Newest</option>
+            </select>
+          </div>
+
+          {/* FILTER TYPE */}
           <div className="Custom-Dropdown">
             <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value)}
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
             >
-              <option value="">Sort By</option>
-              <option value="name">Name (A-Z)</option>
-              <option value="newest">Newest</option>
+              <option value="published">Published Recipes</option>
+
+              <option value="myrecipes">My Recipes</option>
             </select>
           </div>
         </div>
@@ -69,45 +120,111 @@ const Recipes = () => {
 
       <hr />
 
-      <h1>Recipes</h1>
+      {/* ================= TITLE ================= */}
+      <h1>{filterType === "myrecipes" ? "My Recipes" : "Recipes"}</h1>
 
+      {/* ================= EMPTY ================= */}
+      {processedRecipes.length === 0 && (
+        <p
+          style={{
+            opacity: 0.7,
+            marginTop: "20px",
+          }}
+        >
+          No recipes found.
+        </p>
+      )}
+
+      {/* ================= GRID ================= */}
       <div className="Recipes-Grid">
-        {processedRecipes.map((recipe) => {
-          return (
-            <div key={recipe.id} className="Recipe-Card">
-              <div className="Recipe-Image-Wrap">
-                <img
-                  src={
-                    recipe.image ||
-                    "placeholder-image.jpg"
-                  }
-                  alt={recipe.title}
-                  className="Recipe-Card-img"
-                />
-              </div>
+        {processedRecipes.map((recipe) => (
+          <div key={recipe.id} className="Recipe-Card">
+            {/* IMAGE */}
+            <div className="Recipe-Image-Wrap">
+              <img
+                src={
+                  recipe.images?.[0] ||
+                  "https://dummyimage.com/300x300/222/fff&text=Recipe"
+                }
+                alt={recipe.title}
+                className="Recipe-Card-img"
+              />
+            </div>
 
-              <div className="Recipe-Card-Name">
-                <p>{recipe.title}</p>
+            {/* TITLE */}
+            <p
+              style={{
+                fontSize: "20px",
+                fontWeight: "700",
+                marginTop: "14px",
+              }}
+            >
+              {recipe.title}
+            </p>
 
-                {recipe.category && (
-                  <p>{recipe.category}</p>
-                )}
-              </div>
 
+            <div
+              style={{
+                display: "flex",
+                gap: "8px",
+                flexWrap: "wrap",
+                marginTop: "12px",
+              }}
+            >
+            
+
+        
+
+              {/* STATUS */}
+              {filterType === "myrecipes" && recipe.status && (
+                <span
+                  style={{
+                    ...miniTag,
+
+                    background:
+                      recipe.status === "approved"
+                        ? "#1d3b25"
+                        : recipe.status === "pending"
+                          ? "#4a3b12"
+                          : "#3a1d1d",
+
+                    color: "#fff",
+                  }}
+                >
+                  {recipe.status}
+                </span>
+              )}
+            </div>
+
+            {/* BUTTON */}
+            <div
+              className="recipe-buttons"
+              style={{
+                marginTop: "18px",
+              }}
+            >
               <button
                 className="Recipe-Card-Button"
-                onClick={() =>
-                  navigate(`/recipe/${recipe.id}`)
-                }
+                onClick={() => navigate(`/recipe/${recipe.id}`)}
               >
-                view more
+                View More
               </button>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </div>
   );
+};
+
+// ================= STYLES =================
+
+const miniTag = {
+  padding: "6px 10px",
+  borderRadius: "999px",
+  background: "#222",
+  border: "1px solid #333",
+  fontSize: "12px",
 };
 
 export default Recipes;

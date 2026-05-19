@@ -2,21 +2,18 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaArrowRight } from "react-icons/fa";
 import { getRecipes } from "../assets/firebase/firestore";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../assets/firebase/config";
+// import { doc, getDoc } from "firebase/firestore";
+// import { db } from "../assets/firebase/config";
 
 const Home = () => {
   const [recipes, setRecipes] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [fade, setFade] = useState(true);
-
-  const [aboutText, setAboutText] = useState("");
-  const [aboutImg, setAboutImg] = useState("");
-
-  const [logo, setLogo] = useState("");
-  const [background, setBackground] = useState("");
-  const [title, setHomeTitle] = useState("");
-
+  // const [currentIndex, setCurrentIndex] = useState(0);
+  // const [fade, setFade] = useState(true);
+  // const [aboutText, setAboutText] = useState("");
+  // const [aboutImg, setAboutImg] = useState("");
+  // const [logo, setLogo] = useState("");
+  // const [background, setBackground] = useState("");
+  // const [title, setHomeTitle] = useState("");
   const navigate = useNavigate();
 
   // 🔹 Fetch recipes
@@ -25,9 +22,14 @@ const Home = () => {
       try {
         const allRecipes = await getRecipes();
 
-        const shuffled = allRecipes.sort(
-          () => 0.5 - Math.random(),
+        // ================= ONLY PUBLISHED =================
+        const publishedRecipes = allRecipes.filter(
+          (recipe) =>
+            recipe.status === "approved" && recipe.visibility === "public",
         );
+
+        // ================= RANDOMIZE =================
+        const shuffled = [...publishedRecipes].sort(() => 0.5 - Math.random());
 
         setRecipes(shuffled.slice(0, 4));
       } catch (error) {
@@ -39,70 +41,59 @@ const Home = () => {
   }, []);
 
   // 🔹 Fetch About data
-  useEffect(() => {
-    const fetchAbout = async () => {
-      try {
-        const refDoc = doc(db, "settings", "about");
-        const snap = await getDoc(refDoc);
-
-        if (snap.exists()) {
-          const data = snap.data();
-
-          setAboutText(data.homeText || "");
-          setAboutImg(data.img1 || "");
-        }
-      } catch (error) {
-        console.error("Error fetching about data:", error);
-      }
-    };
-
-    fetchAbout();
-  }, []);
+  // useEffect(() => {
+  //   const fetchAbout = async () => {
+  //     try {
+  //       const refDoc = doc(db, "settings", "about");
+  //       const snap = await getDoc(refDoc);
+  //       if (snap.exists()) {
+  //         const data = snap.data();
+  //         setAboutText(data.homeText || "");
+  //         setAboutImg(data.img1 || "");
+  //       }
+  //     } catch (error) {
+  //       console.error("Error fetching about data:", error);
+  //     }
+  //   };
+  //   fetchAbout();
+  // }, []);
 
   // 🔹 Fetch Home settings
-  useEffect(() => {
-    const fetchHome = async () => {
-      try {
-        const refDoc = doc(db, "settings", "home");
-        const snap = await getDoc(refDoc);
-
-        if (snap.exists()) {
-          const data = snap.data();
-
-          setLogo(data.logo || "");
-          setBackground(data.background || "");
-          setHomeTitle(data.title || "");
-        }
-      } catch (error) {
-        console.error("Error fetching home settings:", error);
-      }
-    };
-
-    fetchHome();
-  }, []);
+  // useEffect(() => {
+  //   const fetchHome = async () => {
+  //     try {
+  //       const refDoc = doc(db, "settings", "home");
+  //       const snap = await getDoc(refDoc);
+  //       if (snap.exists()) {
+  //         const data = snap.data();
+  //         setLogo(data.logo || "");
+  //         setBackground(data.background || "");
+  //         setHomeTitle(data.title || "");
+  //       }
+  //     } catch (error) {
+  //       console.error("Error fetching home settings:", error);
+  //     }
+  //   };
+  //   fetchHome();
+  // }, []);
 
   // 🔥 Carousel animation
-  useEffect(() => {
-    if (recipes.length === 0) return;
+  // useEffect(() => {
+  //   if (recipes.length === 0) return;
+  //   const interval = setInterval(() => {
+  //     setFade(false);
+  //     setTimeout(() => {
+  //       setCurrentIndex((prev) => (prev + 1) % recipes.length);
+  //       setFade(true);
+  //     }, 800);
+  //   }, 3000);
 
-    const interval = setInterval(() => {
-      setFade(false);
-
-      setTimeout(() => {
-        setCurrentIndex(
-          (prev) => (prev + 1) % recipes.length,
-        );
-
-        setFade(true);
-      }, 800);
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [recipes]);
+  //   return () => clearInterval(interval);
+  // }, [recipes]);
 
   return (
     <div className="Home-Page page">
-      {/* ===== Carousel ===== */}
+      {/* ===== Carousel ===== 
       <section
         className="Home-Carousel"
         style={{
@@ -122,30 +113,38 @@ const Home = () => {
                 alt="Logo"
               />
             )}
-
-            <h1 style={{ fontSize: "50px" }}>
+            <h1
+              style={{
+                fontSize: "50px",
+              }}
+            >
               {title}
             </h1>
           </div>
-
           <p
             className={`Home-Carousel-Categories ${
-              fade ? "fade-in" : "fade-out"
+              fade
+                ? "fade-in"
+                : "fade-out"
             }`}
           >
-            {recipes[currentIndex]?.title ||
-              "Loading..."}
+            {recipes[currentIndex]
+              ?.title || "Loading..."}
           </p>
 
           <div className="Home-Carousel-Buttens">
             <button
-              onClick={() => navigate("/recipes")}
+              onClick={() =>
+                navigate("/recipes")
+              }
             >
               more
             </button>
 
             <button
-              onClick={() => navigate("/about")}
+              onClick={() =>
+                navigate("/about")
+              }
             >
               about
             </button>
@@ -153,7 +152,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ===== About ===== */}
+      {/* ===== About ===== 
       <section className="Home-About">
         {aboutImg && (
           <img
@@ -167,10 +166,12 @@ const Home = () => {
           <h1>About</h1>
 
           <p>
-            {aboutText || "Loading about text..."}
+            {aboutText ||
+              "Loading about text..."}
           </p>
         </div>
       </section>
+      */}
 
       {/* ===== Recipes ===== */}
       <section className="Home-Recipes">
@@ -178,36 +179,28 @@ const Home = () => {
 
         <div className="Home-Recipes-Grid">
           <div className="Home-Recipes-Cards">
-            {recipes.map((recipe) => {
-              return (
-                <div
-                  key={recipe.id}
-                  className="Recipe-Card"
-                >
-                  <div className="Recipe-Image-Wrap">
-                    <img
-                      src={
-                        recipe.image ||
-                        "placeholder-image.jpg"
-                      }
-                      alt={recipe.title}
-                      className="Recipe-Card-img"
-                    />
-                  </div>
-
-                  <p>{recipe.title}</p>
-
-                  <button
-                    className="Recipe-Card-Button"
-                    onClick={() =>
-                      navigate(`/recipe/${recipe.id}`)
+            {recipes.map((recipe) => (
+              <div key={recipe.id} className="Recipe-Card">
+                <div className="Recipe-Image-Wrap">
+                  <img
+                    src={
+                      recipe.images?.[0] ||
+                      "https://dummyimage.com/300x300/222/fff&text=Recipe"
                     }
-                  >
-                    view more
+                    alt={recipe.title}
+                    className="Recipe-Card-img"
+                  />
+                </div>
+
+                <p>{recipe.title}</p>
+
+                <div className="recipe-buttons">
+                  <button onClick={() => navigate(`/recipe/${recipe.id}`)}>
+                    View More
                   </button>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
 
           <button
@@ -215,8 +208,11 @@ const Home = () => {
               height: "40px",
               width: "40px",
               borderRadius: "50%",
+
               display: "flex",
+
               alignItems: "center",
+
               justifyContent: "center",
             }}
             onClick={() => navigate("/recipes")}

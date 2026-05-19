@@ -17,10 +17,7 @@ const createDefaultUserDoc = async (uid, email) => {
     await setUserWithId(uid, {
       id: uid,
       email,
-      role: "customer", // default role
-      phone: "",
-      location: "",
-      purchases: {},
+      role: "user", // default role
       createdAt: new Date(),
     });
   }

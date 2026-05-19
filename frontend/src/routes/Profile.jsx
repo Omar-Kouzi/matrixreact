@@ -2,25 +2,26 @@ import { useEffect, useState } from "react";
 import SecureLS from "secure-ls";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "../assets/firebase/config";
+import { getRecipes } from "../assets/firebase/firestore";
 import { useNavigate } from "react-router-dom";
 
-const ls = new SecureLS({ encodingType: "aes" });
+const ls = new SecureLS({
+  encodingType: "aes",
+});
 
 const Profile = () => {
   const [user, setUser] = useState(null);
-  const [ordersStatus, setOrdersStatus] = useState({});
+  const [recipes, setRecipes] = useState([]);
   const [editing, setEditing] = useState({
     name: false,
-    phone: false,
-    location: false,
   });
 
   const [tempData, setTempData] = useState({});
-  const [tempLocation, setTempLocation] = useState(null);
 
   const navigate = useNavigate();
   const uid = ls.get("uid");
 
+  // ================= FETCH USER =================
   useEffect(() => {
     const fetchUser = async () => {
       if (!uid) return;
@@ -32,28 +33,30 @@ const Profile = () => {
         const data = docSnap.data();
         setUser(data);
         setTempData(data);
-
-        if (data.purchases) {
-          let statuses = {};
-
-          for (let p of data.purchases) {
-            const orderRef = doc(db, "orders", p.orderId);
-            const orderSnap = await getDoc(orderRef);
-
-            if (orderSnap.exists()) {
-              statuses[p.orderId] = orderSnap.data().status;
-            }
-          }
-
-          setOrdersStatus(statuses);
-        }
       }
     };
 
     fetchUser();
   }, [uid]);
 
-  // FIXED SAVE
+  // ================= FETCH USER RECIPES =================
+  useEffect(() => {
+    const fetchUserRecipes = async () => {
+      try {
+        const allRecipes = await getRecipes();
+
+        const myRecipes = allRecipes.filter((r) => r.authorId === uid);
+
+        setRecipes(myRecipes);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchUserRecipes();
+  }, [uid]);
+
+  // ================= SAVE USER FIELD =================
   const handleSave = async (field, value) => {
     try {
       const userRef = doc(db, "users", uid);
@@ -62,24 +65,39 @@ const Profile = () => {
         [field]: value,
       });
 
-      setUser({
-        ...user,
+      setUser((prev) => ({
+        ...prev,
         [field]: value,
-      });
+      }));
 
-      setTempData({
-        ...tempData,
+      setTempData((prev) => ({
+        ...prev,
         [field]: value,
-      });
+      }));
 
-      setEditing({
-        ...editing,
+      setEditing((prev) => ({
+        ...prev,
         [field]: false,
-      });
-
-      setTempLocation(null);
+      }));
     } catch (err) {
       console.error("Update error:", err);
+    }
+  };
+
+  // ================= REQUEST PUBLISH =================
+  const requestPublish = async (recipeId) => {
+    try {
+      const ref = doc(db, "recipes", recipeId);
+
+      await updateDoc(ref, {
+        status: "pending",
+      });
+
+      setRecipes((prev) =>
+        prev.map((r) => (r.id === recipeId ? { ...r, status: "pending" } : r)),
+      );
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -88,15 +106,18 @@ const Profile = () => {
   return (
     <div className="page">
       <h1>Profile</h1>
+
       <hr />
 
+      {/* ================= USER INFO ================= */}
       <div className="user-info">
         <div>
           <h3>Name:</h3>
+
           {editing.name ? (
             <>
               <input
-                value={tempData.name}
+                value={tempData.name || ""}
                 onChange={(e) =>
                   setTempData({
                     ...tempData,
@@ -104,6 +125,7 @@ const Profile = () => {
                   })
                 }
               />
+
               <button onClick={() => handleSave("name", tempData.name)}>
                 Save
               </button>
@@ -111,7 +133,14 @@ const Profile = () => {
           ) : (
             <>
               <p>{user.name}</p>
-              <button onClick={() => setEditing({ ...editing, name: true })}>
+
+              <button
+                onClick={() =>
+                  setEditing({
+                    name: true,
+                  })
+                }
+              >
                 Edit
               </button>
             </>
@@ -122,130 +151,82 @@ const Profile = () => {
           <h3>Email:</h3>
           <p>{user.email}</p>
         </div>
+      </div>
 
-        <div>
-          <h3>Phone:</h3>
-          {editing.phone ? (
-            <>
-              <input
-                value={tempData.phone}
-                onChange={(e) =>
-                  setTempData({
-                    ...tempData,
-                    phone: e.target.value,
-                  })
-                }
-              />
-              <button onClick={() => handleSave("phone", tempData.phone)}>
-                Save
-              </button>
-            </>
-          ) : (
-            <>
-              <p>{user.phone}</p>
-              <button onClick={() => setEditing({ ...editing, phone: true })}>
-                Edit
-              </button>
-            </>
-          )}
-        </div>
+      <hr />
 
-        <div>
-          <h3>Location:</h3>
+      {/* ================= USER RECIPES ================= */}
+      <h2>My Recipes</h2>
 
-          {editing.location ? (
-            <div className="Profile-Map">
-          
+      <div className="Recipes-Grid">
+        {recipes.length > 0 ? (
+          recipes.map((recipe) => (
+            <div key={recipe.id} className="Recipe-Card">
+              {/* IMAGE */}
+              <div className="Recipe-Image-Wrap">
+                <img
+                  src={recipe.images?.[0] || "placeholder-image.jpg"}
+                  alt={recipe.title}
+                  className="Recipe-Card-img"
+                />
+              </div>
 
-              {tempLocation && (
-                <p>
-                  <strong>Selected:</strong> {tempLocation.address}
+              {/* CONTENT */}
+              <div className="Recipe-Card-Name">
+                <p>{recipe.title}</p>
+
+                <p
+                  style={{
+                    fontSize: "13px",
+                    opacity: 0.7,
+                  }}
+                >
+                  Status: {recipe.status}
                 </p>
-              )}
+              </div>
 
+              {/* BUTTONS */}
               <div
                 style={{
                   display: "flex",
                   gap: "10px",
-                  marginTop: "10px",
+                  flexWrap: "wrap",
                 }}
               >
+                {/* VIEW */}
                 <button
-                  onClick={() =>
-                    handleSave(
-                      "location",
-                      tempLocation || user.location
-                    )
-                  }
+                  className="Recipe-Card-Button"
+                  onClick={() => navigate(`/recipe/${recipe.id}`)}
                 >
-                  Save
+                  View
                 </button>
 
+                {/* EDIT */}
                 <button
-                  onClick={() => {
-                    setEditing({
-                      ...editing,
-                      location: false,
-                    });
-                    setTempLocation(null);
-                  }}
+                  className="Recipe-Card-Button"
+                  onClick={() => navigate(`/edit-recipe/${recipe.id}`)}
                 >
-                  Cancel
+                  Edit
                 </button>
+
+                {/* REQUEST PUBLISH */}
+                {recipe.status !== "approved" && (
+                  <button
+                    className="Recipe-Card-Button"
+                    onClick={() => requestPublish(recipe.id)}
+                    style={{
+                      background: "#ffcc00",
+                      color: "#111",
+                    }}
+                  >
+                    Request Publish
+                  </button>
+                )}
               </div>
-            </div>
-          ) : user.location ? (
-            <p>{user.location.address}</p>
-          ) : (
-            <p>No location set.</p>
-          )}
-
-          {!editing.location && (
-            <button
-              onClick={() =>
-                setEditing({
-                  ...editing,
-                  location: true,
-                })
-              }
-            >
-              Edit Location
-            </button>
-          )}
-        </div>
-      </div>
-
-      <hr />
-      <h2>Past Purchases</h2>
-
-      <div className="purchases">
-        {user.purchases?.length > 0 ? (
-          user.purchases.map((p, i) => (
-            <div key={i}>
-              <div className="purchase-card">
-                <p className="purchase-card-id">
-                  Order ID: {p.orderId}
-                </p>
-
-                <p className="purchase-card-status">
-                  Status: {ordersStatus[p.orderId] || "pending"}
-                </p>
-
-                <button
-                  className="purchase-card-button"
-                  onClick={() =>
-                    navigate(`/purchasedetail/${p.orderId}`)
-                  }
-                >
-                  View Details
-                </button>
-              </div>
-
-              <hr />
             </div>
           ))
         ) : (
-          <p>No purchases yet</p>
+          <p>No recipes yet</p>
         )}
       </div>
     </div>

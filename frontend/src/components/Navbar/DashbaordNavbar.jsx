@@ -31,12 +31,13 @@ const DashboardNavbar = () => {
     <section className="Navbar">
       {/* 🔥 Logo */}
       {logo && <img src={logo} alt="icon" className="Navbar-Icon" />}
-
+      <img src="" alt="icon" className="Navbar-Icon" />
       {/* Desktop Nav */}
       <div className="Navigators">
         <NavLink to="/">Home</NavLink>
         <NavLink to="/dashboard/">HomeDash</NavLink>
         <NavLink to="/dashboard/Drecipes">Recipes</NavLink>
+        <NavLink to="/dashboard/Drequestedrecipes">Requested Recipes</NavLink>
       </div>
 
       {/* ☰ Hamburger */}
@@ -55,7 +56,6 @@ const DashboardNavbar = () => {
         <div className="Close-Btn" onClick={() => setOpen(false)}>
           <FiX size={28} />
         </div>
-
         <NavLink to="/" onClick={() => setOpen(false)}>
           Home
         </NavLink>
@@ -64,8 +64,13 @@ const DashboardNavbar = () => {
         </NavLink>
         <NavLink to="/dashboard/Drecipes" onClick={() => setOpen(false)}>
           Recipes
+        </NavLink>{" "}
+        <NavLink
+          to="/dashboard/Drequestedrecipes"
+          onClick={() => setOpen(false)}
+        >
+          Requested Recipes
         </NavLink>
-    
       </div>
     </section>
   );

@@ -1,6 +1,8 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 
+import SecureLS from "secure-ls";
+
 import { db } from "../assets/firebase/config";
 
 import {
@@ -9,52 +11,128 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 
-import { getRecipe } from "../assets/firebase/firestore";
+import {
+  getRecipe,
+  getCategories,
+} from "../assets/firebase/firestore";
 
 import {
   uploadMultipleImages,
   deleteMultipleImages,
 } from "../assets/firebase/storage";
 
+const ls = new SecureLS({
+  encodingType: "aes",
+});
+
 const Drecipe = () => {
   const { id } = useParams();
 
   const navigate = useNavigate();
 
-  // State
+  const uid = ls.get("uid");
+
+  const isAdmin = ls.get("role") === "admin";
+
+  // ================= STATE =================
   const [recipe, setRecipe] = useState(null);
 
+  const [loading, setLoading] = useState(true);
+
   const [title, setTitle] = useState("");
-  const [description, setDescription] =
-    useState("");
-  const [category, setCategory] = useState("");
 
-  const [ingredients, setIngredients] =
-    useState([
-      { name: "", quantity: "" },
-    ]);
+  const [description, setDescription] = useState("");
 
+  // ================= NEW FIELDS =================
+  const [prepTime, setPrepTime] = useState("");
+
+  const [cookTime, setCookTime] = useState("");
+
+  const [servings, setServings] = useState("");
+
+  const [difficulty, setDifficulty] = useState("Easy");
+
+  // visibility
+  const [visibility, setVisibility] = useState("private");
+
+  const [status, setStatus] = useState("draft");
+
+  // categories
+  const [categories, setCategories] = useState([]);
+
+  const [selectedCategories, setSelectedCategories] = useState([]);
+
+  // ingredients
+  const [ingredients, setIngredients] = useState([
+    {
+      name: "",
+      quantity: "",
+    },
+  ]);
+
+  // steps
   const [steps, setSteps] = useState([""]);
 
+  // images
   const [images, setImages] = useState([]);
-  const [existingImages, setExistingImages] =
-    useState([]);
 
-  // Fetch recipe
+  const [existingImages, setExistingImages] = useState([]);
+
+  // ================= FETCH CATEGORIES =================
+  const fetchCategories = async () => {
+    try {
+      const data = await getCategories();
+
+      setCategories(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // ================= FETCH RECIPE =================
   useEffect(() => {
     const fetchRecipe = async () => {
       try {
+        setLoading(true);
+
         const data = await getRecipe(id);
+
+        if (!data) {
+          alert("Recipe not found");
+
+          navigate("/dashboard/Drecipes");
+
+          return;
+        }
+
+        // ================= SECURITY =================
+        if (data.authorId !== uid && !isAdmin) {
+          alert("Unauthorized");
+
+          navigate("/");
+
+          return;
+        }
 
         setRecipe(data);
 
-        // Fill form
         setTitle(data.title || "");
-        setDescription(
-          data.description || "",
-        );
 
-        setCategory(data.category || "");
+        setDescription(data.description || "");
+
+        setPrepTime(data.prepTime || "");
+
+        setCookTime(data.cookTime || "");
+
+        setServings(data.servings || "");
+
+        setDifficulty(data.difficulty || "Easy");
+
+        setVisibility(data.visibility || "private");
+
+        setStatus(data.status || "draft");
+
+        setSelectedCategories(data.categories || []);
 
         setIngredients(
           data.ingredients || [
@@ -70,36 +148,40 @@ const Drecipe = () => {
         setExistingImages(data.images || []);
       } catch (error) {
         console.error(error);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchRecipe();
-  }, [id]);
 
-  // Handle new images
+    fetchCategories();
+  }, [id, uid, isAdmin, navigate]);
+
+  // ================= CATEGORY TOGGLE =================
+  const handleCategoryToggle = (name) => {
+    setSelectedCategories((prev) =>
+      prev.includes(name)
+        ? prev.filter((c) => c !== name)
+        : [...prev, name],
+    );
+  };
+
+  // ================= HANDLE IMAGES =================
   const handleImageChange = (e) => {
-    const files = Array.from(
-      e.target.files,
-    ).slice(0, 2);
+    const files = Array.from(e.target.files).slice(0, 5);
 
     setImages(files);
   };
 
-  // Remove existing image
   const removeExistingImage = (index) => {
-    const updated = existingImages.filter(
-      (_, i) => i !== index,
-    );
+    const updated = existingImages.filter((_, i) => i !== index);
 
     setExistingImages(updated);
   };
 
-  // ✅ Ingredients
-  const handleIngredientChange = (
-    index,
-    field,
-    value,
-  ) => {
+  // ================= INGREDIENTS =================
+  const handleIngredientChange = (index, field, value) => {
     const updated = [...ingredients];
 
     updated[index][field] = value;
@@ -110,23 +192,21 @@ const Drecipe = () => {
   const addIngredient = () => {
     setIngredients([
       ...ingredients,
-      { name: "", quantity: "" },
+      {
+        name: "",
+        quantity: "",
+      },
     ]);
   };
 
   const removeIngredient = (index) => {
     setIngredients(
-      ingredients.filter(
-        (_, i) => i !== index,
-      ),
+      ingredients.filter((_, i) => i !== index),
     );
   };
 
-  // ✅ Steps
-  const handleStepChange = (
-    index,
-    value,
-  ) => {
+  // ================= STEPS =================
+  const handleStepChange = (index, value) => {
     const updated = [...steps];
 
     updated[index] = value;
@@ -144,88 +224,115 @@ const Drecipe = () => {
     );
   };
 
-  // ✅ UPDATE RECIPE
+  // ================= UPDATE RECIPE =================
   const handleUpdate = async () => {
     if (
       title.trim() === "" ||
       description.trim() === ""
     ) {
-      return alert("Fill all fields");
+      alert("Fill all fields");
+
+      return;
     }
 
     try {
       let finalImages = [...existingImages];
 
+      // ================= NEW IMAGES =================
       if (images.length > 0) {
-        if (existingImages.length) {
-          await deleteMultipleImages(
-            existingImages,
-          );
+        if (existingImages.length > 0) {
+          await deleteMultipleImages(existingImages);
         }
 
-        const urls =
-          await uploadMultipleImages(
-            images,
-            "recipes",
-          );
+        const urls = await uploadMultipleImages(
+          images,
+          "recipes",
+        );
 
         finalImages = urls;
       }
 
-      const cleanedIngredients =
-        ingredients.filter(
-          (item) =>
-            item.name.trim() !== "" ||
-            item.quantity.trim() !== "",
-        );
+      // ================= CLEAN DATA =================
+      const cleanedIngredients = ingredients.filter(
+        (item) =>
+          item.name.trim() !== "" ||
+          item.quantity.trim() !== "",
+      );
 
       const cleanedSteps = steps.filter(
         (step) => step.trim() !== "",
       );
 
-      await updateDoc(
-        doc(db, "recipes", id),
-        {
-          title,
-          description,
-          category,
-          ingredients:
-            cleanedIngredients,
-          steps: cleanedSteps,
-          images: finalImages,
-        },
-      );
+      // ================= UPDATE =================
+      const recipeRef = doc(db, "recipes", id);
+
+      await updateDoc(recipeRef, {
+        title,
+        description,
+
+        prepTime,
+        cookTime,
+        servings,
+        difficulty,
+
+        visibility,
+        status,
+
+        categories: selectedCategories,
+
+        ingredients: cleanedIngredients,
+
+        steps: cleanedSteps,
+
+        images: finalImages,
+
+        updatedAt: new Date(),
+      });
 
       alert("Recipe updated ✅");
 
       navigate("/dashboard/Drecipes");
     } catch (error) {
-      console.error(
-        "Update error:",
-        error,
-      );
+      console.error("Update error:", error);
+
+      alert("Error updating recipe");
     }
   };
 
-  // ❌ DELETE RECIPE
+  // ================= REQUEST PUBLISH =================
+  const handleRequestPublish = async () => {
+    try {
+      // WATCH 2 ADS HERE
+
+      const recipeRef = doc(db, "recipes", id);
+
+      await updateDoc(recipeRef, {
+        status: "pending",
+        updatedAt: new Date(),
+      });
+
+      setStatus("pending");
+
+      alert("Recipe submitted for review ✅");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // ================= DELETE =================
   const handleDelete = async () => {
-    const confirmDelete =
-      window.confirm(
-        "Delete this recipe?",
-      );
+    const confirmDelete = window.confirm(
+      "Delete this recipe?",
+    );
 
     if (!confirmDelete) return;
 
     try {
-      if (existingImages.length) {
-        await deleteMultipleImages(
-          existingImages,
-        );
+      if (existingImages.length > 0) {
+        await deleteMultipleImages(existingImages);
       }
 
-      await deleteDoc(
-        doc(db, "recipes", id),
-      );
+      await deleteDoc(doc(db, "recipes", id));
 
       alert("Deleted ✅");
 
@@ -235,19 +342,29 @@ const Drecipe = () => {
     }
   };
 
-  if (!recipe)
-    return (
-      <div className="page">
-        Loading...
-      </div>
-    );
+  if (loading) {
+    return <div className="page">Loading...</div>;
+  }
+
+  if (!recipe) {
+    return <div className="page">Recipe not found</div>;
+  }
 
   return (
     <div className="page">
       <h1>Edit Recipe</h1>
 
-      <div className="Dashboard-Add-Recipe">
-        <label>Recipe Title:</label>
+      <div
+        className="Dashboard-Add-Recipe"
+        style={{
+          background: "#161616",
+          border: "1px solid #2a2a2a",
+          borderRadius: "24px",
+          padding: "25px",
+        }}
+      >
+        {/* TITLE */}
+        <label>Recipe Title</label>
 
         <input
           type="text"
@@ -256,34 +373,274 @@ const Drecipe = () => {
             setTitle(e.target.value)
           }
           placeholder="Recipe title"
+          style={{
+            padding: "14px",
+            borderRadius: "14px",
+            border: "1px solid #333",
+            background: "#222",
+            color: "#fff",
+            marginBottom: "20px",
+            outline: "none",
+            width: "90%",
+          }}
         />
 
-        <label>Description:</label>
+        {/* DESCRIPTION */}
+        <label>Description</label>
 
         <textarea
           value={description}
           onChange={(e) =>
-            setDescription(
-              e.target.value,
-            )
+            setDescription(e.target.value)
           }
           placeholder="Description"
+          style={{
+            minHeight: "120px",
+            padding: "14px",
+            borderRadius: "14px",
+            border: "1px solid #333",
+            background: "#222",
+            color: "#fff",
+            marginBottom: "20px",
+            outline: "none",
+            resize: "vertical",
+            width: "90%",
+          }}
         />
 
-        <label>Category:</label>
+        {/* ================= NEW FIELDS ================= */}
 
-        <input
-          type="text"
-          value={category}
-          onChange={(e) =>
-            setCategory(e.target.value)
-          }
-          placeholder="Category"
-        />
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit,minmax(220px,1fr))",
+            gap: "15px",
+            marginBottom: "20px",
+          }}
+        >
+          <div>
+            <label>Prep Time</label>
 
-        {/* ✅ Ingredients */}
-        <div className="ingredients">
-          <p>Ingredients:</p>
+            <input
+              type="text"
+              placeholder="0 mins"
+              value={prepTime}
+              onChange={(e) =>
+                setPrepTime(e.target.value)
+              }
+              style={{
+                width: "90%",
+                padding: "14px",
+                borderRadius: "14px",
+                border: "1px solid #333",
+                background: "#222",
+                color: "#fff",
+                marginTop: "10px",
+              }}
+            />
+          </div>
+
+          <div>
+            <label>Cook Time</label>
+
+            <input
+              type="text"
+              placeholder="0 mins"
+              value={cookTime}
+              onChange={(e) =>
+                setCookTime(e.target.value)
+              }
+              style={{
+                width: "90%",
+                padding: "14px",
+                borderRadius: "14px",
+                border: "1px solid #333",
+                background: "#222",
+                color: "#fff",
+                marginTop: "10px",
+              }}
+            />
+          </div>
+
+          <div>
+            <label>Servings</label>
+
+            <input
+              type="number"
+              placeholder="0"
+              value={servings}
+              onChange={(e) =>
+                setServings(e.target.value)
+              }
+              style={{
+                width: "90%",
+                padding: "14px",
+                borderRadius: "14px",
+                border: "1px solid #333",
+                background: "#222",
+                color: "#fff",
+                marginTop: "10px",
+              }}
+            />
+          </div>
+
+          <div>
+            <label>Difficulty</label>
+
+            <select
+              value={difficulty}
+              onChange={(e) =>
+                setDifficulty(e.target.value)
+              }
+              style={{
+                width: "90%",
+                padding: "14px",
+                borderRadius: "14px",
+                border: "1px solid #333",
+                background: "#222",
+                color: "#fff",
+                marginTop: "10px",
+              }}
+            >
+              <option value="Easy">
+                Easy
+              </option>
+
+              <option value="Medium">
+                Medium
+              </option>
+
+              <option value="Hard">
+                Hard
+              </option>
+            </select>
+          </div>
+        </div>
+
+        {/* VISIBILITY */}
+        <div
+          style={{
+            marginBottom: "20px",
+          }}
+        >
+          <label>Visibility</label>
+
+          <select
+            value={visibility}
+            onChange={(e) =>
+              setVisibility(e.target.value)
+            }
+            style={{
+              width: "90%",
+              padding: "14px",
+              borderRadius: "14px",
+              border: "1px solid #333",
+              background: "#222",
+              color: "#fff",
+              marginTop: "10px",
+            }}
+          >
+            <option value="private">
+              Private
+            </option>
+
+            <option value="public">
+              Public
+            </option>
+          </select>
+        </div>
+
+        {/* STATUS */}
+        <div
+          style={{
+            marginBottom: "20px",
+          }}
+        >
+          <p>
+            Status:{" "}
+            <strong>{status}</strong>
+          </p>
+        </div>
+
+        {/* CATEGORIES */}
+        <div
+          style={{
+            marginTop: "20px",
+            padding: "20px",
+            borderRadius: "18px",
+            background: "#1c1c1c",
+            border: "1px solid #2a2a2a",
+            marginBottom: "20px",
+          }}
+        >
+          <p
+            style={{
+              fontSize: "18px",
+              fontWeight: "600",
+            }}
+          >
+            Categories
+          </p>
+
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "10px",
+            }}
+          >
+            {categories.map((cat) => {
+              const active =
+                selectedCategories.includes(
+                  cat.name,
+                );
+
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() =>
+                    handleCategoryToggle(
+                      cat.name,
+                    )
+                  }
+                  style={{
+                    padding: "10px 16px",
+                    borderRadius: "999px",
+                    border: active
+                      ? "1px solid var(--accent)"
+                      : "1px solid #333",
+                    background: active
+                      ? "var(--accent)"
+                      : "#222",
+                    color: active
+                      ? "#111"
+                      : "#fff",
+                    cursor: "pointer",
+                  }}
+                >
+                  {cat.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* INGREDIENTS */}
+        <div
+          style={{
+            marginBottom: "25px",
+          }}
+        >
+          <p
+            style={{
+              fontSize: "18px",
+              fontWeight: "600",
+            }}
+          >
+            Ingredients
+          </p>
 
           {ingredients.map(
             (item, index) => (
@@ -292,8 +649,7 @@ const Drecipe = () => {
                 style={{
                   display: "flex",
                   gap: "10px",
-                  marginBottom:
-                    "10px",
+                  marginBottom: "10px",
                 }}
               >
                 <input
@@ -307,6 +663,15 @@ const Drecipe = () => {
                       e.target.value,
                     )
                   }
+                  style={{
+                    flex: 1,
+                    padding: "12px",
+                    borderRadius: "12px",
+                    border:
+                      "1px solid #333",
+                    background: "#222",
+                    color: "#fff",
+                  }}
                 />
 
                 <input
@@ -320,6 +685,15 @@ const Drecipe = () => {
                       e.target.value,
                     )
                   }
+                  style={{
+                    flex: 1,
+                    padding: "12px",
+                    borderRadius: "12px",
+                    border:
+                      "1px solid #333",
+                    background: "#222",
+                    color: "#fff",
+                  }}
                 />
 
                 <button
@@ -342,60 +716,83 @@ const Drecipe = () => {
           </button>
         </div>
 
-        {/* ✅ Steps */}
-        <div className="steps">
-          <p>Steps:</p>
+        {/* STEPS */}
+        <div>
+          <p
+            style={{
+              fontSize: "18px",
+              fontWeight: "600",
+            }}
+          >
+            Steps
+          </p>
 
-          {steps.map((step, index) => (
-            <div
-              key={index}
-              style={{
-                display: "flex",
-                gap: "10px",
-                marginBottom:
-                  "10px",
-              }}
-            >
-              <textarea
-                placeholder={`Step ${
-                  index + 1
-                }`}
-                value={step}
-                onChange={(e) =>
-                  handleStepChange(
-                    index,
-                    e.target.value,
-                  )
-                }
-              />
-
-              <button
-                onClick={() =>
-                  removeStep(index)
-                }
+          {steps.map(
+            (step, index) => (
+              <div
+                key={index}
+                style={{
+                  display: "flex",
+                  gap: "10px",
+                  marginBottom: "10px",
+                }}
               >
-                X
-              </button>
-            </div>
-          ))}
+                <textarea
+                  placeholder={`Step ${
+                    index + 1
+                  }`}
+                  value={step}
+                  onChange={(e) =>
+                    handleStepChange(
+                      index,
+                      e.target.value,
+                    )
+                  }
+                  style={{
+                    flex: 1,
+                    minHeight: "90px",
+                    padding: "12px",
+                    borderRadius: "12px",
+                    border:
+                      "1px solid #333",
+                    background: "#222",
+                    color: "#fff",
+                  }}
+                />
+
+                <button
+                  onClick={() =>
+                    removeStep(index)
+                  }
+                >
+                  X
+                </button>
+              </div>
+            ),
+          )}
 
           <button onClick={addStep}>
             Add Step
           </button>
         </div>
 
-        {/* Upload new images */}
+        {/* IMAGES */}
         <input
           type="file"
           multiple
           onChange={handleImageChange}
+          style={{
+            marginTop: "25px",
+          }}
         />
 
-        {/* Existing images */}
+        {/* EXISTING IMAGES */}
         <div
           style={{
             display: "flex",
             gap: "10px",
+            flexWrap: "wrap",
+            marginTop: "20px",
           }}
         >
           {existingImages.map(
@@ -403,8 +800,7 @@ const Drecipe = () => {
               <div
                 key={i}
                 style={{
-                  position:
-                    "relative",
+                  position: "relative",
                 }}
               >
                 <img
@@ -413,8 +809,8 @@ const Drecipe = () => {
                   style={{
                     width: "200px",
                     height: "200px",
-                    objectFit:
-                      "cover",
+                    objectFit: "cover",
+                    borderRadius: "16px",
                   }}
                 />
 
@@ -427,13 +823,8 @@ const Drecipe = () => {
                   style={{
                     position:
                       "absolute",
-                    top: 0,
-                    right: 0,
-                    background:
-                      "red",
-                    color: "#fff",
-                    border:
-                      "none",
+                    top: "10px",
+                    right: "10px",
                   }}
                 >
                   X
@@ -443,11 +834,13 @@ const Drecipe = () => {
           )}
         </div>
 
-        {/* Preview new images */}
+        {/* NEW IMAGE PREVIEW */}
         <div
           style={{
             display: "flex",
             gap: "10px",
+            flexWrap: "wrap",
+            marginTop: "20px",
           }}
         >
           {images.map((img, i) => (
@@ -461,19 +854,50 @@ const Drecipe = () => {
                 width: "200px",
                 height: "200px",
                 objectFit: "cover",
+                borderRadius: "16px",
               }}
             />
           ))}
         </div>
 
-        <button onClick={handleUpdate}>
+        {/* UPDATE */}
+        <button
+          onClick={handleUpdate}
+          style={{
+            marginTop: "30px",
+            padding: "16px",
+            borderRadius: "16px",
+          }}
+        >
           Update Recipe
         </button>
 
+        {/* REQUEST PUBLISH */}
+        {status !== "approved" && (
+          <button
+            onClick={
+              handleRequestPublish
+            }
+            style={{
+              marginTop: "15px",
+              marginLeft: "10px",
+              padding: "16px",
+              borderRadius: "16px",
+            }}
+          >
+            Request Publish
+          </button>
+        )}
+
+        {/* DELETE */}
         <button
           onClick={handleDelete}
           style={{
-            background: "red",
+            marginTop: "15px",
+            marginLeft: "10px",
+            padding: "16px",
+            borderRadius: "16px",
+            background: "#ff4d4d",
             color: "#fff",
           }}
         >

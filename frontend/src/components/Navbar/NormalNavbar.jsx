@@ -76,6 +76,11 @@ const NormalNavbar = () => {
     <section className="Navbar">
       {/* 🔥 Dynamic logo */}
       {logo && <img src={logo} alt="logo" className="Navbar-Icon" />}
+      <img
+        src="https://cdn-icons-png.flaticon.com/512/6415/6415827.png"
+        alt="icon"
+        className="Navbar-Icon"
+      />
 
       {/* Desktop nav */}
       <div className="Navigators">
@@ -107,7 +112,6 @@ const NormalNavbar = () => {
 
         {user && uid && (
           <div className="Navigators-Icons">
-      
             <NavLink to={`/profile/${uid}`}>
               <FaUserCircle />
             </NavLink>
@@ -138,7 +142,7 @@ const NormalNavbar = () => {
         <NavLink to="/recipes" onClick={() => setOpen(false)}>
           Recipes
         </NavLink>
-    
+
         <NavLink to="/contact" onClick={() => setOpen(false)}>
           Contact
         </NavLink>
@@ -151,7 +155,6 @@ const NormalNavbar = () => {
 
         {user && uid && (
           <div className="Navigators-Icons">
-          
             <NavLink to={`/profile/${uid}`} onClick={() => setOpen(false)}>
               Profile <FaUserCircle />
             </NavLink>
