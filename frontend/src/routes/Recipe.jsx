@@ -1,6 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-
 import SecureLS from "secure-ls";
 
 import {
@@ -13,8 +12,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "../assets/firebase/config";
-
-import { getRecipe } from "../assets/firebase/firestore";
+import { getRecipe, getRecipes } from "../assets/firebase/firestore";
 
 const ls = new SecureLS({
   encodingType: "aes",
@@ -22,15 +20,11 @@ const ls = new SecureLS({
 
 const Recipe = () => {
   const { id } = useParams();
-
   const navigate = useNavigate();
-
   const uid = ls.get("uid");
 
   const [recipe, setRecipe] = useState(null);
-
   const [loading, setLoading] = useState(true);
-
   const [liked, setLiked] = useState(false);
 
   // ================= FETCH RECIPE =================
@@ -43,32 +37,28 @@ const Recipe = () => {
 
         if (!data) {
           setRecipe(null);
-
           return;
         }
 
-        // ================= SECURITY =================
+        // SECURITY
         const canView =
           (data.status === "approved" && data.visibility === "public") ||
           data.authorId === uid;
 
         if (!canView) {
           navigate("/recipes");
-
           return;
         }
 
         setRecipe(data);
 
-        // ================= CHECK LIKE =================
+        // CHECK LIKE
         if (uid) {
           const userRef = doc(db, "users", uid);
-
           const userSnap = await getDoc(userRef);
 
           if (userSnap.exists()) {
             const userData = userSnap.data();
-
             if (userData.likedRecipes?.includes(id)) {
               setLiked(true);
             }
@@ -88,13 +78,11 @@ const Recipe = () => {
   const handleLike = async () => {
     if (!uid) {
       alert("Login first");
-
       return;
     }
 
     try {
       const recipeRef = doc(db, "recipes", id);
-
       const userRef = doc(db, "users", uid);
 
       if (liked) {
@@ -133,23 +121,44 @@ const Recipe = () => {
     }
   };
 
-  // ================= LOADING =================
-  if (loading) {
-    return <div className="page">Loading...</div>;
-  }
+  // ================= SUB RECIPE =================
+  const handleSubRecipe = async (ingredientName) => {
+    try {
+      const recipes = await getRecipes();
 
-  // ================= NOT FOUND =================
-  if (!recipe) {
-    return <div className="page">Recipe not found</div>;
-  }
+      const foundRecipe = recipes.find(
+        (r) =>
+          r.title?.toLowerCase().trim() ===
+            ingredientName.toLowerCase().trim() &&
+          r.status === "approved" &&
+          r.visibility === "public"
+      );
+
+      if (foundRecipe) {
+        navigate(`/recipe/${foundRecipe.id}`);
+      } else {
+        alert("No matching recipe found");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // ================= LOADING =================
+  if (loading) return <div className="page">Loading...</div>;
+
+  if (!recipe) return <div className="page">Recipe not found</div>;
+
+  // ================= SORTED INGREDIENTS =================
+  const sortedIngredients = [...(recipe.ingredients || [])].sort((a, b) =>
+    (a.name || "").localeCompare(b.name || "")
+  );
 
   return (
     <div className="Recipe-page page">
-      {/* ================= HERO ================= */}
+      {/* HERO */}
       <div className="Recipe-Hero">
-        {/* ================= IMAGES ================= */}
         <div className="Recipe-Hero-Images">
-          {/* MAIN IMAGE */}
           <div className="Recipe-Main-Image-Wrap">
             <img
               src={
@@ -160,40 +169,16 @@ const Recipe = () => {
               className="Recipe-Main-Image"
             />
           </div>
-
-          {/* GALLERY */}
-          {recipe.images?.length > 1 && (
-            <div className="Recipe-Gallery">
-              {recipe.images.map((img, index) => (
-                <img
-                  key={index}
-                  src={img}
-                  alt={`${recipe.title}-${index}`}
-                  className="Recipe-Gallery-Image"
-                />
-              ))}
-            </div>
-          )}
         </div>
 
-        {/* ================= INFO ================= */}
+        {/* INFO */}
         <div className="Recipe-Info">
-          {/* TITLE */}
           <h1 className="Recipe-Title">{recipe.title}</h1>
 
-          {/* DESCRIPTION */}
           <p className="Recipe-Description">{recipe.description}</p>
 
-          {/* LIKE BUTTON */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "15px",
-              marginBottom: "20px",
-              flexWrap: "wrap",
-            }}
-          >
+          {/* LIKE */}
+          <div style={{ display: "flex", gap: "15px", marginBottom: "20px" }}>
             <button
               onClick={handleLike}
               style={{
@@ -203,9 +188,6 @@ const Recipe = () => {
                 background: liked ? "#ff4d6d" : "#222",
                 color: "#fff",
                 cursor: "pointer",
-                fontWeight: "700",
-                fontSize: "15px",
-                transition: "0.2s",
               }}
             >
               {liked ? "♥ Liked" : "♡ Like"}
@@ -217,94 +199,46 @@ const Recipe = () => {
                 borderRadius: "14px",
                 background: "#1f1f1f",
                 border: "1px solid #2e2e2e",
-                fontSize: "14px",
-                opacity: 0.9,
               }}
             >
               {recipe.likes || 0} likes
             </div>
           </div>
 
-          {/* CATEGORIES */}
-          {recipe.categories?.length > 0 && (
-            <div className="Recipe-Categories">
-              {recipe.categories.map((cat, index) => (
-                <span key={index} className="Recipe-Category">
-                  {cat}
-                </span>
-              ))}
-            </div>
-          )}
-
           {/* META */}
           <div className="Recipe-Meta-Grid">
             <div className="Recipe-Meta-Card">
-              <p className="Recipe-Meta-Title">Prep Time</p>
-
-              <h3 className="Recipe-Meta-Value">
-                {recipe.prepTime || "Not calculated yet"}
-              </h3>
+              <p>Prep Time</p>
+              <h3>{recipe.prepTime || "Not calculated yet"}</h3>
             </div>
 
             <div className="Recipe-Meta-Card">
-              <p className="Recipe-Meta-Title">Cook Time</p>
-
-              <h3 className="Recipe-Meta-Value">
-                {recipe.cookTime || "Not calculated yet"}
-              </h3>
+              <p>Cook Time</p>
+              <h3>{recipe.cookTime || "Not calculated yet"}</h3>
             </div>
 
             <div className="Recipe-Meta-Card">
-              <p className="Recipe-Meta-Title">Servings</p>
-
-              <h3 className="Recipe-Meta-Value">
-                {recipe.servings || "Not specified"}
-              </h3>
+              <p>Servings</p>
+              <h3>{recipe.servings || "Not specified"}</h3>
             </div>
 
             <div className="Recipe-Meta-Card">
-              <p className="Recipe-Meta-Title">Difficulty</p>
-
-              <h3 className="Recipe-Meta-Value">
-                {recipe.difficulty || "Unknown"}
-              </h3>
+              <p>Difficulty</p>
+              <h3>{recipe.difficulty || "Unknown"}</h3>
             </div>
           </div>
-
-          {/* STATUS */}
-          <br/>
-          {recipe.status && (
-            <div className="Recipe-Status-Wrap">
-              <span className={`Recipe-Status Recipe-Status-${recipe.status}`}>
-                {recipe.status}
-              </span>
-            </div>
-          )}
-
-          {/* FEATURED */}
-          {recipe.featured && (
-            <div className="Recipe-Featured-Wrap">
-              <span className="Recipe-Featured">Featured Recipe</span>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* ================= CONTENT ================= */}
+      {/* CONTENT */}
       <div className="Recipe-Content">
-        {/* ================= INGREDIENTS ================= */}
+        {/* INGREDIENTS */}
         <div className="Recipe-Ingredients-Card">
-          <h2 className="Recipe-Section-Title">Ingredients</h2>
+          <h2>Ingredients</h2>
 
-          {recipe.ingredients?.length > 0 ? (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "12px",
-              }}
-            >
-              {recipe.ingredients.map((ingredient, index) => (
+          {sortedIngredients.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {sortedIngredients.map((ingredient, index) => (
                 <div
                   key={index}
                   style={{
@@ -312,59 +246,60 @@ const Recipe = () => {
                     justifyContent: "space-between",
                     alignItems: "center",
                     background: "#1f1f1f",
-                    border: "1px solid #2e2e2e",
                     padding: "16px",
                     borderRadius: "18px",
                   }}
                 >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontWeight: "600",
-                    }}
-                  >
-                    {ingredient.name}
-                  </p>
+                  <div>
+                    <p style={{ margin: 0, fontWeight: 600 }}>
+                      {ingredient.name}
+                    </p>
 
-                  <span
-                    style={{
-                      opacity: 0.7,
-                    }}
-                  >
+                    {ingredient.quantity === "Sub Recipe" && (
+                      <button
+                        onClick={() => handleSubRecipe(ingredient.name)}
+                        style={{
+                          marginTop: "8px",
+                          padding: "8px 14px",
+                          borderRadius: "10px",
+                          border: "1px solid #3a3a3a",
+                          background: "#2a2a2a",
+                          color: "#fff",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                        }}
+                      >
+                        Open Sub Recipe
+                      </button>
+                    )}
+                  </div>
+
+                  <span style={{ opacity: 0.7 }}>
                     {ingredient.quantity}
                   </span>
                 </div>
               ))}
             </div>
           ) : (
-            <p
-              style={{
-                opacity: 0.7,
-              }}
-            >
-              No ingredients added.
-            </p>
+            <p>No ingredients added.</p>
           )}
         </div>
 
-        {/* ================= STEPS ================= */}
+        {/* STEPS */}
         <div className="Recipe-Steps-Card">
-          <h2 className="Recipe-Section-Title">Instructions</h2>
+          <h2>Instructions</h2>
 
           {recipe.steps?.length > 0 ? (
             <div className="Recipe-Steps-List">
               {recipe.steps.map((step, index) => (
                 <div key={index} className="Recipe-Step">
-                  {/* NUMBER */}
                   <div className="Recipe-Step-Number">{index + 1}</div>
-
-                  {/* STEP */}
                   <div className="Recipe-Step-Text">{step}</div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="Recipe-Empty">No steps added.</p>
+            <p>No steps added.</p>
           )}
         </div>
       </div>

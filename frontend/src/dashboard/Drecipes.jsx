@@ -47,6 +47,13 @@ const Drecipes = () => {
   const [servings, setServings] = useState("");
   const [featured, setFeatured] = useState(false);
 
+  // ================= AI ADDITIONS =================
+  const [aiSteps, setAiSteps] = useState(null);
+  const [loadingAI, setLoadingAI] = useState(false);
+
+  const [aiDescription, setAiDescription] = useState(null);
+  const [loadingAIDesc, setLoadingAIDesc] = useState(false);
+
   // ================= FETCH RECIPES =================
   const fetchRecipes = async () => {
     try {
@@ -78,6 +85,154 @@ const Drecipes = () => {
     fetchRecipes();
     fetchCategories();
   }, []);
+
+  // ================= AI DESCRIPTION FUNCTION =================
+  const improveDescriptionWithAI = async () => {
+    if (!description.trim()) return alert("Please enter a description first.");
+
+    try {
+      setLoadingAIDesc(true);
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.REACT_APP_MATRIX_OPEN_AI}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  {
+                    text: `
+You are an expert culinary writer. 
+
+Rewrite this recipe description to be highly engaging, appetizing, and brief (around 2-3 sentences max). Make readers want to cook this dish.
+
+Return a JSON object containing a single string property called "rewrittenDescription". Do not include markdown code block syntax.
+
+Current description:
+"${description}"
+                    `,
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              responseMimeType: "application/json",
+            },
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(`API Error (${res.status}):`, errText);
+        alert(`AI Request failed with status ${res.status}`);
+        return;
+      }
+
+      const data = await res.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!text) {
+        console.error("No AI response structure:", data);
+        return;
+      }
+
+      const parsed = JSON.parse(text.trim());
+
+      if (parsed?.rewrittenDescription) {
+        setAiDescription(parsed.rewrittenDescription);
+      } else {
+        console.error("AI object did not match expectations:", parsed);
+      }
+    } catch (err) {
+      console.error("AI Description error:", err);
+    } finally {
+      setLoadingAIDesc(false);
+    }
+  };
+
+  // ================= AI STEPS FUNCTION =================
+  const improveStepsWithAI = async () => {
+    const cleanCurrentSteps = steps.filter((s) => s.trim());
+    if (cleanCurrentSteps.length === 0)
+      return alert("Please add some steps first.");
+
+    try {
+      setLoadingAI(true);
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.REACT_APP_MATRIX_OPEN_AI}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  {
+                    text: `
+You are a cooking assistant.
+
+Rewrite these cooking steps to be:
+- clearer
+- simpler
+- easy to follow
+
+CRITICAL FORMATTING RULES:
+1. Return a JSON array of strings.
+2. DO NOT include numbers, bullet points, dashes, or prefixes (e.g., do NOT write "1. Mix ingredients", just write "Mix ingredients").
+3. Each item in the array must be exactly one isolated step.
+
+Steps to rewrite:
+${JSON.stringify(cleanCurrentSteps)}
+                    `,
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              responseMimeType: "application/json",
+            },
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(`API Error (${res.status}):`, errText);
+        alert(`AI Request failed with status ${res.status}`);
+        return;
+      }
+
+      const data = await res.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!text) {
+        console.error("No AI response structure:", data);
+        return;
+      }
+
+      const parsed = JSON.parse(text.trim());
+
+      if (Array.isArray(parsed)) {
+        setAiSteps(parsed);
+      } else {
+        console.error("AI did not return an array:", parsed);
+      }
+    } catch (err) {
+      console.error("AI error:", err);
+    } finally {
+      setLoadingAI(false);
+    }
+  };
 
   // ================= ADD CATEGORY =================
   const handleAddCategory = async () => {
@@ -212,7 +367,10 @@ const Drecipes = () => {
       setCookTime("");
       setServings("");
       setFeatured(false);
+      setAiDescription(null);
+      setAiSteps(null);
       fetchRecipes();
+      alert("Recipe Added Successfully ✅");
     } catch (err) {
       console.error(err);
 
@@ -292,8 +450,78 @@ const Drecipes = () => {
                 ...inputStyle,
                 minHeight: "120px",
                 resize: "vertical",
+                marginBottom: "10px",
               }}
             />
+
+            {/* AI DESCRIPTION MODULE */}
+            <div style={{ marginBottom: "20px" }}>
+              <button
+                type="button"
+                onClick={improveDescriptionWithAI}
+                style={btnSecondary}
+              >
+                {loadingAIDesc
+                  ? "Improving..."
+                  : "✨ Optimize Description with AI"}
+              </button>
+
+              {aiDescription && (
+                <div
+                  style={{
+                    marginTop: "15px",
+                    background: "#222",
+                    padding: "15px",
+                    borderRadius: "14px",
+                    border: "1px dashed #444",
+                    width: "90%",
+                  }}
+                >
+                  <h4 style={{ margin: "0 0 10px 0", color: "var(--accent)" }}>
+                    AI Suggestion:
+                  </h4>
+                  <p
+                    style={{
+                      color: "#ccc",
+                      margin: "0 0 15px 0",
+                      lineHeight: "1.5",
+                      fontSize: "14px",
+                    }}
+                  >
+                    {aiDescription}
+                  </p>
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDescription(aiDescription);
+                        setAiDescription(null);
+                      }}
+                      style={{
+                        ...secondaryButton,
+                        background: "var(--accent)",
+                        color: "#111",
+                        fontWeight: "600",
+                        marginTop: 0,
+                      }}
+                    >
+                      Accept Changes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAiDescription(null)}
+                      style={{
+                        ...secondaryButton,
+                        background: "#ff4d4d",
+                        marginTop: 0,
+                      }}
+                    >
+                      Decline
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* EXTRA INFO */}
 
@@ -512,6 +740,7 @@ const Drecipes = () => {
                   />
 
                   <button
+                    type="button"
                     onClick={() => removeIngredient(index)}
                     style={deleteButtonStyle}
                   >
@@ -520,14 +749,18 @@ const Drecipes = () => {
                 </div>
               ))}
 
-              <button onClick={addIngredient} style={secondaryButton}>
+              <button
+                type="button"
+                onClick={addIngredient}
+                style={secondaryButton}
+              >
                 Add Ingredient
               </button>
             </div>
 
             {/* STEPS */}
 
-            <div className="steps">
+            <div className="steps" style={{ marginBottom: "25px" }}>
               <p style={sectionTitle}>Steps</p>
 
               {steps.map((step, index) => (
@@ -551,6 +784,7 @@ const Drecipes = () => {
                   />
 
                   <button
+                    type="button"
                     onClick={() => removeStep(index)}
                     style={deleteButtonStyle}
                   >
@@ -559,9 +793,90 @@ const Drecipes = () => {
                 </div>
               ))}
 
-              <button onClick={addStep} style={secondaryButton}>
-                Add Step
-              </button>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                  marginTop: "10px",
+                }}
+              >
+                <button type="button" onClick={addStep} style={secondaryButton}>
+                  Add Step
+                </button>
+
+                <button
+                  type="button"
+                  onClick={improveStepsWithAI}
+                  style={{
+                    ...secondaryButton,
+                    background: "#222",
+                    border: "1px dashed #555",
+                  }}
+                >
+                  {loadingAI ? "Cleaning..." : "✨ Clean Steps with AI"}
+                </button>
+              </div>
+
+              {/* AI STEPS CONTAINER */}
+              {aiSteps && (
+                <div
+                  style={{
+                    marginTop: "15px",
+                    background: "#222",
+                    padding: "15px",
+                    borderRadius: "14px",
+                    border: "1px dashed #444",
+                  }}
+                >
+                  <h4 style={{ margin: "0 0 10px 0", color: "var(--accent)" }}>
+                    AI Cleaned Steps:
+                  </h4>
+                  <ol
+                    style={{
+                      paddingLeft: "20px",
+                      color: "#ccc",
+                      margin: "0 0 15px 0",
+                      fontSize: "14px",
+                    }}
+                  >
+                    {aiSteps.map((s, i) => (
+                      <li key={i} style={{ marginBottom: "6px" }}>
+                        {s}
+                      </li>
+                    ))}
+                  </ol>
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSteps(aiSteps);
+                        setAiSteps(null);
+                      }}
+                      style={{
+                        ...secondaryButton,
+                        background: "var(--accent)",
+                        color: "#111",
+                        fontWeight: "600",
+                        marginTop: 0,
+                      }}
+                    >
+                      Accept AI Steps
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAiSteps(null)}
+                      style={{
+                        ...secondaryButton,
+                        background: "#ff4d4d",
+                        marginTop: 0,
+                      }}
+                    >
+                      Decline
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* SUBMIT */}
@@ -569,8 +884,9 @@ const Drecipes = () => {
             <button
               onClick={handleSubmit}
               style={{
-                marginTop: "30px",
+                marginTop: "10px",
                 padding: "16px",
+                width: "100%",
                 borderRadius: "16px",
                 border: "none",
                 background: "var(--accent)",
@@ -691,10 +1007,6 @@ const Drecipes = () => {
 
             <p>{recipe.title}</p>
 
-        
-
-        
-
             <div className="recipe-buttons">
               <NavLink to={`/dashboard/Drecipe/${recipe.id}`}>
                 <button>View More</button>
@@ -744,6 +1056,15 @@ const secondaryButton = {
   marginTop: "10px",
 };
 
+const btnSecondary = {
+  padding: "10px 14px",
+  borderRadius: "10px",
+  background: "#333",
+  color: "#fff",
+  border: "1px solid #444",
+  cursor: "pointer",
+};
+
 const deleteButtonStyle = {
   padding: "12px 16px",
   borderRadius: "12px",
@@ -752,4 +1073,5 @@ const deleteButtonStyle = {
   color: "#fff",
   cursor: "pointer",
 };
+
 export default Drecipes;

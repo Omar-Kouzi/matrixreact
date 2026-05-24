@@ -40,8 +40,160 @@ const EditRecipe = () => {
 
   const [steps, setSteps] = useState([""]);
 
+  // ================= AI ADDITIONS =================
+  const [aiSteps, setAiSteps] = useState(null);
+  const [loadingAI, setLoadingAI] = useState(false);
+
+  // 🪄 NEW AI DESCRIPTION STATES
+  const [aiDescription, setAiDescription] = useState(null);
+  const [loadingAIDesc, setLoadingAIDesc] = useState(false);
+
   const [images, setImages] = useState([]);
   const [existingImages, setExistingImages] = useState([]);
+
+  // ================= AI DESCRIPTION FUNCTION =================
+  const improveDescriptionWithAI = async () => {
+    if (!description.trim()) return alert("Please enter a description first.");
+
+    try {
+      setLoadingAIDesc(true);
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.REACT_APP_MATRIX_OPEN_AI}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  {
+                    text: `
+You are an expert culinary writer. 
+
+Rewrite this recipe description to be highly engaging, appetizing, and brief (around 2-3 sentences max). Make readers want to cook this dish.
+
+Return a JSON object containing a single string property called "rewrittenDescription". Do not include markdown code block syntax.
+
+Current description:
+"${description}"
+                    `,
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              responseMimeType: "application/json",
+            },
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(`API Error (${res.status}):`, errText);
+        alert(`AI Request failed with status ${res.status}`);
+        return;
+      }
+
+      const data = await res.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!text) {
+        console.error("No AI response structure:", data);
+        return;
+      }
+
+      const parsed = JSON.parse(text.trim());
+
+      if (parsed?.rewrittenDescription) {
+        setAiDescription(parsed.rewrittenDescription);
+      } else {
+        console.error("AI object did not match expectations:", parsed);
+      }
+    } catch (err) {
+      console.error("AI Description error:", err);
+    } finally {
+      setLoadingAIDesc(false);
+    }
+  };
+
+  // ================= AI STEPS FUNCTION =================
+  const improveStepsWithAI = async () => {
+    try {
+      setLoadingAI(true);
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.REACT_APP_MATRIX_OPEN_AI}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  {
+                    text: `
+You are a cooking assistant.
+
+Rewrite these cooking steps to be:
+- clearer
+- simpler
+- easy to follow
+
+CRITICAL FORMATTING RULES:
+1. Return a JSON array of strings.
+2. DO NOT include numbers, bullet points, dashes, or prefixes (e.g., do NOT write "1. Mix ingredients", just write "Mix ingredients").
+3. Each item in the array must be exactly one isolated step.
+
+Steps to rewrite:
+${JSON.stringify(steps)}
+                    `,
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              responseMimeType: "application/json",
+            },
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(`API Error (${res.status}):`, errText);
+        alert(`AI Request failed with status ${res.status}`);
+        return;
+      }
+
+      const data = await res.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!text) {
+        console.error("No AI response structure:", data);
+        return;
+      }
+
+      const parsed = JSON.parse(text.trim());
+
+      if (Array.isArray(parsed)) {
+        setAiSteps(parsed);
+      } else {
+        console.error("AI did not return an array:", parsed);
+      }
+    } catch (err) {
+      console.error("AI error:", err);
+    } finally {
+      setLoadingAI(false);
+    }
+  };
 
   // ================= FETCH =================
   useEffect(() => {
@@ -193,9 +345,59 @@ const EditRecipe = () => {
             border: "1px solid #333",
             background: "#222",
             color: "#fff",
-            marginBottom: "20px",
+            marginBottom: "10px",
           }}
         />
+
+        {/* AI DESCRIPTION INTERFACE */}
+        <div style={{ marginBottom: "20px" }}>
+          <button onClick={improveDescriptionWithAI} style={btnSecondary}>
+            {loadingAIDesc ? "Improving..." : "✨ Improve Description with AI"}
+          </button>
+
+          {aiDescription && (
+            <div
+              style={{
+                marginTop: "15px",
+                background: "#222",
+                padding: "15px",
+                borderRadius: "14px",
+                border: "1px dashed #444",
+                width: "90%",
+              }}
+            >
+              <h4 style={{ margin: "0 0 10px 0", color: "var(--accent)" }}>
+                AI Suggestion:
+              </h4>
+              <p
+                style={{
+                  color: "#ccc",
+                  margin: "0 0 15px 0",
+                  lineHeight: "1.5",
+                }}
+              >
+                {aiDescription}
+              </p>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  onClick={() => {
+                    setDescription(aiDescription);
+                    setAiDescription(null);
+                  }}
+                  style={{ ...btnPrimary, marginTop: 0 }}
+                >
+                  Accept Changes
+                </button>
+                <button
+                  onClick={() => setAiDescription(null)}
+                  style={{ ...btnDanger, marginTop: 0 }}
+                >
+                  Decline
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* META */}
         <div
@@ -235,8 +437,6 @@ const EditRecipe = () => {
             <option>Hard</option>
           </select>
         </div>
-
-    
 
         {/* CATEGORIES */}
         <div style={{ marginTop: "20px", marginBottom: "20px" }}>
@@ -300,13 +500,44 @@ const EditRecipe = () => {
               copy[idx] = e.target.value;
               setSteps(copy);
             }}
-            style={{
-              ...inputStyle,
-              minHeight: "90px",
-              marginBottom: "10px",
-            }}
+            style={{ ...inputStyle, minHeight: "90px", marginBottom: "10px" }}
           />
         ))}
+
+        {/* ✅ AI BUTTON */}
+        <button onClick={improveStepsWithAI} style={btnPrimary}>
+          {loadingAI ? "Improving..." : "Improve Steps with AI"}
+        </button>
+
+        {/* AI RESULT */}
+        {aiSteps && (
+          <div style={{ marginTop: "15px" }}>
+            <h4>AI Suggestion</h4>
+
+            {aiSteps.map((s, i) => (
+              <p
+                key={i}
+                style={{
+                  background: "#222",
+                  padding: "10px",
+                  borderRadius: "10px",
+                }}
+              >
+                {s}
+              </p>
+            ))}
+
+            <button
+              onClick={() => {
+                setSteps(aiSteps);
+                setAiSteps(null);
+              }}
+              style={btnPrimary}
+            >
+              Accept AI Changes
+            </button>
+          </div>
+        )}
 
         {/* IMAGES */}
         <input
@@ -368,6 +599,15 @@ const btnPrimary = {
   borderRadius: "14px",
   background: "var(--accent)",
   border: "none",
+  cursor: "pointer",
+};
+
+const btnSecondary = {
+  padding: "10px 14px",
+  borderRadius: "10px",
+  background: "#333",
+  color: "#fff",
+  border: "1px solid #444",
   cursor: "pointer",
 };
 
