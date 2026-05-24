@@ -3,6 +3,17 @@ import { useEffect, useState } from "react";
 
 import SecureLS from "secure-ls";
 
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  increment,
+  arrayUnion,
+  arrayRemove,
+} from "firebase/firestore";
+
+import { db } from "../assets/firebase/config";
+
 import { getRecipe } from "../assets/firebase/firestore";
 
 const ls = new SecureLS({
@@ -19,6 +30,8 @@ const Recipe = () => {
   const [recipe, setRecipe] = useState(null);
 
   const [loading, setLoading] = useState(true);
+
+  const [liked, setLiked] = useState(false);
 
   // ================= FETCH RECIPE =================
   useEffect(() => {
@@ -46,6 +59,21 @@ const Recipe = () => {
         }
 
         setRecipe(data);
+
+        // ================= CHECK LIKE =================
+        if (uid) {
+          const userRef = doc(db, "users", uid);
+
+          const userSnap = await getDoc(userRef);
+
+          if (userSnap.exists()) {
+            const userData = userSnap.data();
+
+            if (userData.likedRecipes?.includes(id)) {
+              setLiked(true);
+            }
+          }
+        }
       } catch (error) {
         console.error("Error fetching recipe:", error);
       } finally {
@@ -55,6 +83,55 @@ const Recipe = () => {
 
     fetchRecipe();
   }, [id, uid, navigate]);
+
+  // ================= LIKE =================
+  const handleLike = async () => {
+    if (!uid) {
+      alert("Login first");
+
+      return;
+    }
+
+    try {
+      const recipeRef = doc(db, "recipes", id);
+
+      const userRef = doc(db, "users", uid);
+
+      if (liked) {
+        await updateDoc(recipeRef, {
+          likes: increment(-1),
+        });
+
+        await updateDoc(userRef, {
+          likedRecipes: arrayRemove(id),
+        });
+
+        setRecipe((prev) => ({
+          ...prev,
+          likes: (prev.likes || 1) - 1,
+        }));
+
+        setLiked(false);
+      } else {
+        await updateDoc(recipeRef, {
+          likes: increment(1),
+        });
+
+        await updateDoc(userRef, {
+          likedRecipes: arrayUnion(id),
+        });
+
+        setRecipe((prev) => ({
+          ...prev,
+          likes: (prev.likes || 0) + 1,
+        }));
+
+        setLiked(true);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   // ================= LOADING =================
   if (loading) {
@@ -107,6 +184,47 @@ const Recipe = () => {
           {/* DESCRIPTION */}
           <p className="Recipe-Description">{recipe.description}</p>
 
+          {/* LIKE BUTTON */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "15px",
+              marginBottom: "20px",
+              flexWrap: "wrap",
+            }}
+          >
+            <button
+              onClick={handleLike}
+              style={{
+                padding: "14px 22px",
+                borderRadius: "14px",
+                border: "none",
+                background: liked ? "#ff4d6d" : "#222",
+                color: "#fff",
+                cursor: "pointer",
+                fontWeight: "700",
+                fontSize: "15px",
+                transition: "0.2s",
+              }}
+            >
+              {liked ? "♥ Liked" : "♡ Like"}
+            </button>
+
+            <div
+              style={{
+                padding: "12px 18px",
+                borderRadius: "14px",
+                background: "#1f1f1f",
+                border: "1px solid #2e2e2e",
+                fontSize: "14px",
+                opacity: 0.9,
+              }}
+            >
+              {recipe.likes || 0} likes
+            </div>
+          </div>
+
           {/* CATEGORIES */}
           {recipe.categories?.length > 0 && (
             <div className="Recipe-Categories">
@@ -120,40 +238,41 @@ const Recipe = () => {
 
           {/* META */}
           <div className="Recipe-Meta-Grid">
-            {recipe.prepTime && (
-              <div className="Recipe-Meta-Card">
-                <p className="Recipe-Meta-Title">Prep Time</p>
+            <div className="Recipe-Meta-Card">
+              <p className="Recipe-Meta-Title">Prep Time</p>
 
-                <h3 className="Recipe-Meta-Value">{recipe.prepTime}</h3>
-              </div>
-            )}
+              <h3 className="Recipe-Meta-Value">
+                {recipe.prepTime || "Not calculated yet"}
+              </h3>
+            </div>
 
-            {recipe.cookTime && (
-              <div className="Recipe-Meta-Card">
-                <p className="Recipe-Meta-Title">Cook Time</p>
+            <div className="Recipe-Meta-Card">
+              <p className="Recipe-Meta-Title">Cook Time</p>
 
-                <h3 className="Recipe-Meta-Value">{recipe.cookTime}</h3>
-              </div>
-            )}
+              <h3 className="Recipe-Meta-Value">
+                {recipe.cookTime || "Not calculated yet"}
+              </h3>
+            </div>
 
-            {recipe.servings && (
-              <div className="Recipe-Meta-Card">
-                <p className="Recipe-Meta-Title">Servings</p>
+            <div className="Recipe-Meta-Card">
+              <p className="Recipe-Meta-Title">Servings</p>
 
-                <h3 className="Recipe-Meta-Value">{recipe.servings}</h3>
-              </div>
-            )}
+              <h3 className="Recipe-Meta-Value">
+                {recipe.servings || "Not specified"}
+              </h3>
+            </div>
 
-            {recipe.difficulty && (
-              <div className="Recipe-Meta-Card">
-                <p className="Recipe-Meta-Title">Difficulty</p>
+            <div className="Recipe-Meta-Card">
+              <p className="Recipe-Meta-Title">Difficulty</p>
 
-                <h3 className="Recipe-Meta-Value">{recipe.difficulty}</h3>
-              </div>
-            )}
+              <h3 className="Recipe-Meta-Value">
+                {recipe.difficulty || "Unknown"}
+              </h3>
+            </div>
           </div>
 
           {/* STATUS */}
+          <br/>
           {recipe.status && (
             <div className="Recipe-Status-Wrap">
               <span className={`Recipe-Status Recipe-Status-${recipe.status}`}>

@@ -5,6 +5,7 @@ import Recipe from "../../routes/Recipe.jsx";
 import Login from "../../routes/Login.jsx";
 import Profile from "../../routes/Profile.jsx";
 import EditRecipe from "../../routes/EditRecipe.jsx";
+import AddRecipe from "../../routes/AddRecipe.jsx";
 function NormalRoutes() {
   return (
     <div>
@@ -15,6 +16,7 @@ function NormalRoutes() {
         <Route path="/login" element={<Login />} />{" "}
         <Route path="/profile/:id" element={<Profile />} />{" "}
         <Route path="/edit-recipe/:id" element={<EditRecipe />} />{" "}
+        <Route path="/add-recipe/" element={<AddRecipe />} />{" "}
         
       </Routes>
     </div>

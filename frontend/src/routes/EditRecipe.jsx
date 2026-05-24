@@ -51,14 +51,14 @@ const EditRecipe = () => {
       const data = await getRecipe(id);
 
       if (!data) {
-        navigate("/recipes");
+        navigate(`/profile/${uid}`);
         return;
       }
 
       // 🔒 ONLY OWNER
       if (data.authorId !== uid) {
         alert("Not allowed");
-        navigate("/recipes");
+        navigate(`/profile/${uid}`);
         return;
       }
 
@@ -130,7 +130,7 @@ const EditRecipe = () => {
     });
 
     alert("Updated ✅");
-    navigate(`/recipe/${id}`);
+    navigate(`/profile/${uid}`);
   };
 
   // ================= DELETE =================
@@ -145,7 +145,7 @@ const EditRecipe = () => {
     await deleteDoc(doc(db, "recipes", id));
 
     alert("Deleted ✅");
-    navigate("/recipes");
+    navigate(`/profile/${uid}`);
   };
 
   if (loading) return <div className="page">Loading...</div>;
