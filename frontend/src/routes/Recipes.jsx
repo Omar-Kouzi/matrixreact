@@ -6,6 +6,10 @@ import { useNavigate } from "react-router-dom";
 
 import SecureLS from "secure-ls";
 
+import { collection, getDocs } from "firebase/firestore";
+
+import { db } from "../assets/firebase/config";
+
 const ls = new SecureLS({
   encodingType: "aes",
 });
@@ -17,7 +21,7 @@ const Recipes = () => {
 
   const [sort, setSort] = useState("");
 
-  const [filterType, setFilterType] = useState("published");
+  const [showOnlyMine, setShowOnlyMine] = useState(false);
 
   const navigate = useNavigate();
 
@@ -29,11 +33,20 @@ const Recipes = () => {
       try {
         const allRecipes = await getRecipes();
 
-        // ================= PUBLISHED =================
-        const publishedRecipes = allRecipes.filter(
-          (recipe) =>
-            recipe.status === "approved" && recipe.visibility === "public",
-        );
+        // ================= GET USERS =================
+        const usersSnapshot = await getDocs(collection(db, "users"));
+
+        const users = usersSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        // ================= ONLY ADMIN RECIPES =================
+        const adminRecipes = allRecipes.filter((recipe) => {
+          const user = users.find((u) => u.id === recipe.authorId);
+
+          return user?.role === "admin";
+        });
 
         // ================= MY RECIPES =================
         const myRecipes = allRecipes.filter(
@@ -41,10 +54,10 @@ const Recipes = () => {
         );
 
         // ================= SET =================
-        if (filterType === "myrecipes") {
+        if (showOnlyMine) {
           setRecipes(myRecipes);
         } else {
-          setRecipes(publishedRecipes);
+          setRecipes(adminRecipes);
         }
       } catch (error) {
         console.error("Error fetching recipes:", error);
@@ -52,7 +65,7 @@ const Recipes = () => {
     };
 
     fetchRecipes();
-  }, [filterType, uid]);
+  }, [showOnlyMine, uid]);
 
   // ================= FILTERS =================
   const processedRecipes = recipes
@@ -104,24 +117,30 @@ const Recipes = () => {
             </select>
           </div>
 
-          {/* FILTER TYPE */}
-          <div className="Custom-Dropdown">
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-            >
-              <option value="published">Published Recipes</option>
-
-              <option value="myrecipes">My Recipes</option>
-            </select>
-          </div>
+          {/* SHOW MY RECIPES */}
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              color: "#fff",
+              marginTop: "10px",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={showOnlyMine}
+              onChange={(e) => setShowOnlyMine(e.target.checked)}
+            />
+            Show Only My Recipes
+          </label>
         </div>
       </details>
 
       <hr />
 
       {/* ================= TITLE ================= */}
-      <h1>{filterType === "myrecipes" ? "My Recipes" : "Recipes"}</h1>
+      <h1>{showOnlyMine ? "My Recipes" : "Recipes"}</h1>
 
       {/* ================= EMPTY ================= */}
       {processedRecipes.length === 0 && (
@@ -162,40 +181,6 @@ const Recipes = () => {
               {recipe.title}
             </p>
 
-
-            <div
-              style={{
-                display: "flex",
-                gap: "8px",
-                flexWrap: "wrap",
-                marginTop: "12px",
-              }}
-            >
-            
-
-        
-
-              {/* STATUS */}
-              {filterType === "myrecipes" && recipe.status && (
-                <span
-                  style={{
-                    ...miniTag,
-
-                    background:
-                      recipe.status === "approved"
-                        ? "#1d3b25"
-                        : recipe.status === "pending"
-                          ? "#4a3b12"
-                          : "#3a1d1d",
-
-                    color: "#fff",
-                  }}
-                >
-                  {recipe.status}
-                </span>
-              )}
-            </div>
-
             {/* BUTTON */}
             <div
               className="recipe-buttons"
@@ -215,16 +200,6 @@ const Recipes = () => {
       </div>
     </div>
   );
-};
-
-// ================= STYLES =================
-
-const miniTag = {
-  padding: "6px 10px",
-  borderRadius: "999px",
-  background: "#222",
-  border: "1px solid #333",
-  fontSize: "12px",
 };
 
 export default Recipes;

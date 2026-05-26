@@ -40,15 +40,8 @@ const Recipe = () => {
           return;
         }
 
-        // SECURITY
-        const canView =
-          (data.status === "approved" && data.visibility === "public") ||
-          data.authorId === uid;
-
-        if (!canView) {
-          navigate("/recipes");
-          return;
-        }
+      
+      
 
         setRecipe(data);
 
@@ -129,9 +122,8 @@ const Recipe = () => {
       const foundRecipe = recipes.find(
         (r) =>
           r.title?.toLowerCase().trim() ===
-            ingredientName.toLowerCase().trim() &&
-          r.status === "approved" &&
-          r.visibility === "public"
+            ingredientName.toLowerCase().trim() 
+        
       );
 
       if (foundRecipe) {

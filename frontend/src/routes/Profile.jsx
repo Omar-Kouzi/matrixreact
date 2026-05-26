@@ -18,6 +18,10 @@ const Profile = () => {
 
   const [recipes, setRecipes] = useState([]);
 
+  const [likedRecipes, setLikedRecipes] = useState([]);
+
+  const [showLiked, setShowLiked] = useState(false);
+
   const [editing, setEditing] = useState({
     name: false,
   });
@@ -51,22 +55,32 @@ const Profile = () => {
     fetchUser();
   }, [uid]);
 
-  // ================= FETCH USER RECIPES =================
+  // ================= FETCH RECIPES =================
   useEffect(() => {
-    const fetchUserRecipes = async () => {
+    const fetchRecipesData = async () => {
       try {
         const allRecipes = await getRecipes();
 
+        // ================= MY RECIPES =================
         const myRecipes = allRecipes.filter((r) => r.authorId === uid);
 
         setRecipes(myRecipes);
+
+        // ================= LIKED RECIPES =================
+        const liked = allRecipes.filter((recipe) =>
+          user?.likedRecipes?.includes(recipe.id),
+        );
+
+        setLikedRecipes(liked);
       } catch (err) {
         console.error(err);
       }
     };
 
-    fetchUserRecipes();
-  }, [uid]);
+    if (user) {
+      fetchRecipesData();
+    }
+  }, [uid, user]);
 
   // ================= SAVE USER FIELD =================
   const handleSave = async (field, value) => {
@@ -96,30 +110,6 @@ const Profile = () => {
     }
   };
 
-  // ================= REQUEST PUBLISH =================
-  const requestPublish = async (recipeId) => {
-    try {
-      const ref = doc(db, "recipes", recipeId);
-
-      await updateDoc(ref, {
-        status: "pending",
-      });
-
-      setRecipes((prev) =>
-        prev.map((r) =>
-          r.id === recipeId
-            ? {
-                ...r,
-                status: "pending",
-              }
-            : r,
-        ),
-      );
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   // ================= WATCH AD =================
   const handleAddRecipe = async () => {
     // admins skip ads
@@ -132,13 +122,8 @@ const Profile = () => {
     try {
       setAdLoading(true);
 
-      // ================= GOOGLE AD =================
-      // YOU WILL REPLACE THIS
-      // WITH REAL GOOGLE REWARDED AD
-
       alert("Watch ad to continue");
 
-      // fake delay
       await new Promise((resolve) => setTimeout(resolve, 3000));
 
       alert("Ad completed ✅");
@@ -237,34 +222,66 @@ const Profile = () => {
 
       <hr />
 
-      {/* ================= USER RECIPES ================= */}
-      <h2>My Recipes</h2>
+      {/* ================= TOGGLE ================= */}
+      <div
+        style={{
+          display: "flex",
+          gap: "10px",
+          marginBottom: "20px",
+        }}
+      >
+        <button
+          onClick={() => setShowLiked(false)}
+          style={{
+            padding: "10px 18px",
+            borderRadius: "12px",
+            border: "none",
+            cursor: "pointer",
+            background: !showLiked ? "var(--accent)" : "#222",
+            color: !showLiked ? "#111" : "#fff",
+          }}
+        >
+          My Recipes
+        </button>
 
+        <button
+          onClick={() => setShowLiked(true)}
+          style={{
+            padding: "10px 18px",
+            borderRadius: "12px",
+            border: "none",
+            cursor: "pointer",
+            background: showLiked ? "var(--accent)" : "#222",
+            color: showLiked ? "#111" : "#fff",
+          }}
+        >
+          Liked Recipes
+        </button>
+      </div>
+
+      {/* ================= TITLE ================= */}
+      <h2>{showLiked ? "Liked Recipes" : "My Recipes"}</h2>
+
+      {/* ================= GRID ================= */}
       <div className="Recipes-Grid">
-        {recipes.length > 0 ? (
-          recipes.map((recipe) => (
+        {(showLiked ? likedRecipes : recipes).length > 0 ? (
+          (showLiked ? likedRecipes : recipes).map((recipe) => (
             <div key={recipe.id} className="Recipe-Card">
               {/* IMAGE */}
               <div className="Recipe-Image-Wrap">
                 <img
-                  src={recipe.images?.[0] || "placeholder-image.jpg"}
-                  alt={recipe.title}
-                  className="Recipe-Card-img"
-                />
+                src={
+                  recipe.images?.[0] ||
+                  "https://dummyimage.com/300x300/222/fff&text=Recipe"
+                }
+                alt={recipe.title}
+                className="Recipe-Card-img"
+              />
               </div>
 
               {/* CONTENT */}
               <div className="Recipe-Card-Name">
                 <p>{recipe.title}</p>
-
-                <p
-                  style={{
-                    fontSize: "13px",
-                    opacity: 0.7,
-                  }}
-                >
-                  Status: {recipe.status}
-                </p>
               </div>
 
               {/* BUTTONS */}
@@ -283,32 +300,20 @@ const Profile = () => {
                   View
                 </button>
 
-                {/* EDIT */}
-                <button
-                  className="Recipe-Card-Button"
-                  onClick={() => navigate(`/edit-recipe/${recipe.id}`)}
-                >
-                  Edit
-                </button>
-
-                {/* REQUEST PUBLISH */}
-                {recipe.status !== "approved" && (
+                {/* EDIT ONLY FOR MY RECIPES */}
+                {!showLiked && (
                   <button
                     className="Recipe-Card-Button"
-                    onClick={() => requestPublish(recipe.id)}
-                    style={{
-                      background: "#ffcc00",
-                      color: "#111",
-                    }}
+                    onClick={() => navigate(`/edit-recipe/${recipe.id}`)}
                   >
-                    Request Publish
+                    Edit
                   </button>
                 )}
               </div>
             </div>
           ))
         ) : (
-          <p>No recipes yet</p>
+          <p>{showLiked ? "No liked recipes yet" : "No recipes yet"}</p>
         )}
       </div>
     </div>

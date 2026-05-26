@@ -25,7 +25,6 @@ const AddRecipe = () => {
 
   const [difficulty, setDifficulty] = useState("Easy");
 
-  const [visibility, setVisibility] = useState("private");
 
   const [categories, setCategories] = useState([]);
 
@@ -139,9 +138,7 @@ const AddRecipe = () => {
         servings,
         difficulty,
 
-        visibility,
 
-        status: "draft",
 
         authorId: uid,
         createdBy: uid,
@@ -338,38 +335,7 @@ const AddRecipe = () => {
           </div>
         </div>
 
-        {/* VISIBILITY */}
-        <div
-          style={{
-            marginBottom: "20px",
-          }}
-        >
-          <label>Visibility</label>
-
-          <select
-            value={visibility}
-            onChange={(e) =>
-              setVisibility(e.target.value)
-            }
-            style={{
-              width: "90%",
-              padding: "14px",
-              borderRadius: "14px",
-              border: "1px solid #333",
-              background: "#222",
-              color: "#fff",
-              marginTop: "10px",
-            }}
-          >
-            <option value="private">
-              Private
-            </option>
-
-            <option value="public">
-              Public
-            </option>
-          </select>
-        </div>
+        
 
         {/* CATEGORIES */}
         <div

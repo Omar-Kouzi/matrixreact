@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import SecureLS from "secure-ls";
 
 import { db } from "../assets/firebase/config";
-import { doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { doc, updateDoc, deleteDoc, getDoc } from "firebase/firestore"; // 👈 Added getDoc
 
 import { getRecipe, getCategories } from "../assets/firebase/firestore";
 
@@ -22,6 +22,7 @@ const EditRecipe = () => {
 
   const [recipe, setRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState(""); // 👈 Track user role
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -51,8 +52,13 @@ const EditRecipe = () => {
   const [images, setImages] = useState([]);
   const [existingImages, setExistingImages] = useState([]);
 
+  // ================= HELPER FOR AI PERMISSIONS =================
+  // 👈 Check if user role qualifies for AI tools
+  const hasAiAccess = userRole === "PUser" || userRole === "admin";
+
   // ================= AI DESCRIPTION FUNCTION =================
   const improveDescriptionWithAI = async () => {
+    if (!hasAiAccess) return alert("You don't have access to AI features.");
     if (!description.trim()) return alert("Please enter a description first.");
 
     try {
@@ -123,6 +129,7 @@ Current description:
 
   // ================= AI STEPS FUNCTION =================
   const improveStepsWithAI = async () => {
+    if (!hasAiAccess) return alert("You don't have access to AI features.");
     try {
       setLoadingAI(true);
 
@@ -199,6 +206,18 @@ ${JSON.stringify(steps)}
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+
+      // 1. Fetch user role first (Assuming users collection matches their uid)
+      if (uid) {
+        try {
+          const userDoc = await getDoc(doc(db, "users", uid));
+          if (userDoc.exists()) {
+            setUserRole(userDoc.data().role || "");
+          }
+        } catch (error) {
+          console.error("Error fetching user role:", error);
+        }
+      }
 
       const data = await getRecipe(id);
 
@@ -350,54 +369,59 @@ ${JSON.stringify(steps)}
         />
 
         {/* AI DESCRIPTION INTERFACE */}
-        <div style={{ marginBottom: "20px" }}>
-          <button onClick={improveDescriptionWithAI} style={btnSecondary}>
-            {loadingAIDesc ? "Improving..." : "✨ Improve Description with AI"}
-          </button>
+        {/* 🔒 RENDER CONDITIONALLY BASED ON ROLE */}
+        {hasAiAccess && (
+          <div style={{ marginBottom: "20px" }}>
+            <button onClick={improveDescriptionWithAI} style={btnSecondary}>
+              {loadingAIDesc
+                ? "Improving..."
+                : "✨ Improve Description with AI"}
+            </button>
 
-          {aiDescription && (
-            <div
-              style={{
-                marginTop: "15px",
-                background: "#222",
-                padding: "15px",
-                borderRadius: "14px",
-                border: "1px dashed #444",
-                width: "90%",
-              }}
-            >
-              <h4 style={{ margin: "0 0 10px 0", color: "var(--accent)" }}>
-                AI Suggestion:
-              </h4>
-              <p
+            {aiDescription && (
+              <div
                 style={{
-                  color: "#ccc",
-                  margin: "0 0 15px 0",
-                  lineHeight: "1.5",
+                  marginTop: "15px",
+                  background: "#222",
+                  padding: "15px",
+                  borderRadius: "14px",
+                  border: "1px dashed #444",
+                  width: "90%",
                 }}
               >
-                {aiDescription}
-              </p>
-              <div style={{ display: "flex", gap: "10px" }}>
-                <button
-                  onClick={() => {
-                    setDescription(aiDescription);
-                    setAiDescription(null);
+                <h4 style={{ margin: "0 0 10px 0", color: "var(--accent)" }}>
+                  AI Suggestion:
+                </h4>
+                <p
+                  style={{
+                    color: "#ccc",
+                    margin: "0 0 15px 0",
+                    lineHeight: "1.5",
                   }}
-                  style={{ ...btnPrimary, marginTop: 0 }}
                 >
-                  Accept Changes
-                </button>
-                <button
-                  onClick={() => setAiDescription(null)}
-                  style={{ ...btnDanger, marginTop: 0 }}
-                >
-                  Decline
-                </button>
+                  {aiDescription}
+                </p>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button
+                    onClick={() => {
+                      setDescription(aiDescription);
+                      setAiDescription(null);
+                    }}
+                    style={{ ...btnPrimary, marginTop: 0 }}
+                  >
+                    Accept Changes
+                  </button>
+                  <button
+                    onClick={() => setAiDescription(null)}
+                    style={{ ...btnDanger, marginTop: 0 }}
+                  >
+                    Decline
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* META */}
         <div
@@ -504,39 +528,42 @@ ${JSON.stringify(steps)}
           />
         ))}
 
-        {/* ✅ AI BUTTON */}
-        <button onClick={improveStepsWithAI} style={btnPrimary}>
-          {loadingAI ? "Improving..." : "Improve Steps with AI"}
-        </button>
-
-        {/* AI RESULT */}
-        {aiSteps && (
-          <div style={{ marginTop: "15px" }}>
-            <h4>AI Suggestion</h4>
-
-            {aiSteps.map((s, i) => (
-              <p
-                key={i}
-                style={{
-                  background: "#222",
-                  padding: "10px",
-                  borderRadius: "10px",
-                }}
-              >
-                {s}
-              </p>
-            ))}
-
-            <button
-              onClick={() => {
-                setSteps(aiSteps);
-                setAiSteps(null);
-              }}
-              style={btnPrimary}
-            >
-              Accept AI Changes
+        {/* ✅ AI STEPS SECTION (🔒 CONDITIONAL RENDER) */}
+        {hasAiAccess && (
+          <>
+            <button onClick={improveStepsWithAI} style={btnPrimary}>
+              {loadingAI ? "Improving..." : "Improve Steps with AI"}
             </button>
-          </div>
+
+            {aiSteps && (
+              <div style={{ marginTop: "15px" }}>
+                <h4>AI Suggestion</h4>
+
+                {aiSteps.map((s, i) => (
+                  <p
+                    key={i}
+                    style={{
+                      background: "#222",
+                      padding: "10px",
+                      borderRadius: "10px",
+                    }}
+                  >
+                    {s}
+                  </p>
+                ))}
+
+                <button
+                  onClick={() => {
+                    setSteps(aiSteps);
+                    setAiSteps(null);
+                  }}
+                  style={btnPrimary}
+                >
+                  Accept AI Changes
+                </button>
+              </div>
+            )}
+          </>
         )}
 
         {/* IMAGES */}
@@ -544,6 +571,7 @@ ${JSON.stringify(steps)}
           type="file"
           multiple
           onChange={(e) => setImages([...e.target.files])}
+          style={{ marginTop: "20px", display: "block" }}
         />
 
         {/* EXISTING IMAGES */}

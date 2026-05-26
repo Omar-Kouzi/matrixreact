@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaArrowRight } from "react-icons/fa";
 import { getRecipes } from "../assets/firebase/firestore";
-// import { doc, getDoc } from "firebase/firestore";
-// import { db } from "../assets/firebase/config";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../assets/firebase/config";
 
 const Home = () => {
   const [recipes, setRecipes] = useState([]);
@@ -16,20 +16,31 @@ const Home = () => {
   // const [title, setHomeTitle] = useState("");
   const navigate = useNavigate();
 
-  // 🔹 Fetch recipes
+  // 🔹 Fetch recipes and filter by Admin Author ID
   useEffect(() => {
     const fetchRecipes = async () => {
       try {
         const allRecipes = await getRecipes();
+        const validAdminRecipes = [];
 
-        // ================= ONLY PUBLISHED =================
-        const publishedRecipes = allRecipes.filter(
-          (recipe) =>
-            recipe.status === "approved" && recipe.visibility === "public",
-        );
+        // Loop through recipes and verify the author's role from the 'users' collection
+        for (const recipe of allRecipes) {
+          if (recipe.authorId) {
+            const userRef = doc(db, "users", recipe.authorId);
+            const userSnap = await getDoc(userRef);
+
+            if (userSnap.exists()) {
+              const userData = userSnap.data();
+              // Check if this specific author is an admin
+              if (userData.role === "admin") {
+                validAdminRecipes.push(recipe);
+              }
+            }
+          }
+        }
 
         // ================= RANDOMIZE =================
-        const shuffled = [...publishedRecipes].sort(() => 0.5 - Math.random());
+        const shuffled = [...validAdminRecipes].sort(() => 0.5 - Math.random());
 
         setRecipes(shuffled.slice(0, 4));
       } catch (error) {
@@ -77,7 +88,7 @@ const Home = () => {
   //   fetchHome();
   // }, []);
 
-  // 🔥 Carousel animation
+  // // 🔥 Carousel animation
   // useEffect(() => {
   //   if (recipes.length === 0) return;
   //   const interval = setInterval(() => {
@@ -93,13 +104,11 @@ const Home = () => {
 
   return (
     <div className="Home-Page page">
-      {/* ===== Carousel ===== 
-      <section
+      {/* ===== Carousel ===== */}
+      {/* <section
         className="Home-Carousel"
         style={{
-          backgroundImage: background
-            ? `url(${background})`
-            : "none",
+          backgroundImage: background ? `url(${background})` : "none",
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
@@ -107,71 +116,34 @@ const Home = () => {
         <div className="Home-Carousel-Data">
           <div>
             {logo && (
-              <img
-                className="Home-Carousel-img"
-                src={logo}
-                alt="Logo"
-              />
+              <img className="Home-Carousel-img" src={logo} alt="Logo" />
             )}
-            <h1
-              style={{
-                fontSize: "50px",
-              }}
-            >
-              {title}
-            </h1>
+            <h1 style={{ fontSize: "50px" }}>{title}</h1>
           </div>
           <p
-            className={`Home-Carousel-Categories ${
-              fade
-                ? "fade-in"
-                : "fade-out"
-            }`}
+            className={`Home-Carousel-Categories ${fade ? "fade-in" : "fade-out"}`}
           >
-            {recipes[currentIndex]
-              ?.title || "Loading..."}
+            {recipes[currentIndex]?.title || "Loading..."}
           </p>
 
           <div className="Home-Carousel-Buttens">
-            <button
-              onClick={() =>
-                navigate("/recipes")
-              }
-            >
-              more
-            </button>
-
-            <button
-              onClick={() =>
-                navigate("/about")
-              }
-            >
-              about
-            </button>
+            <button onClick={() => navigate("/recipes")}>more</button>
+            <button onClick={() => navigate("/about")}>about</button>
           </div>
         </div>
-      </section>
+      </section> */}
 
-      {/* ===== About ===== 
-      <section className="Home-About">
+      {/* ===== About ===== */}
+      {/* <section className="Home-About">
         {aboutImg && (
-          <img
-            src={aboutImg}
-            alt="About"
-            className="Home-About-img"
-          />
+          <img src={aboutImg} alt="About" className="Home-About-img" />
         )}
 
         <div className="Home-About-Data">
           <h1>About</h1>
-
-          <p>
-            {aboutText ||
-              "Loading about text..."}
-          </p>
+          <p>{aboutText || "Loading about text..."}</p>
         </div>
-      </section>
-      */}
+      </section> */}
 
       {/* ===== Recipes ===== */}
       <section className="Home-Recipes">
@@ -208,11 +180,8 @@ const Home = () => {
               height: "40px",
               width: "40px",
               borderRadius: "50%",
-
               display: "flex",
-
               alignItems: "center",
-
               justifyContent: "center",
             }}
             onClick={() => navigate("/recipes")}

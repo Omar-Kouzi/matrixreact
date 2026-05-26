@@ -1,5 +1,5 @@
 // ================= IMPORTS =================
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import SecureLS from "secure-ls";
 import {
   getRecipes,
@@ -10,7 +10,8 @@ import {
 } from "../assets/firebase/firestore";
 
 import { NavLink } from "react-router-dom";
-
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../assets/firebase/config";
 const ls = new SecureLS({
   encodingType: "aes",
 });
@@ -55,36 +56,42 @@ const Drecipes = () => {
   const [loadingAIDesc, setLoadingAIDesc] = useState(false);
 
   // ================= FETCH RECIPES =================
-  const fetchRecipes = async () => {
+  const fetchRecipes = useCallback(async () => {
     try {
+      // ================= GET USERS =================
+      const usersSnapshot = await getDocs(collection(db, "users"));
+
+      const users = usersSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
       const data = await getRecipes();
+      // ONLY SHOW RECIPES CREATED BY THIS ADMIN
+      const adminRecipes = data.filter((recipe) => {
+        const user = users.find((u) => u.id === recipe.authorId);
 
-      // ONLY APPROVED RECIPES
-      const approvedRecipes = data.filter(
-        (recipe) =>
-          recipe.status === "approved" && recipe.visibility === "public",
-      );
-
-      setRecipes(approvedRecipes);
+        return user?.role === "admin";
+      });
+      setRecipes(adminRecipes);
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
 
   // ================= FETCH CATEGORIES =================
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       const data = await getCategories();
       setCategories(data);
     } catch (err) {
       console.error("Categories error:", err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchRecipes();
     fetchCategories();
-  }, []);
+  }, [fetchRecipes, fetchCategories]);
 
   // ================= AI DESCRIPTION FUNCTION =================
   const improveDescriptionWithAI = async () => {
@@ -247,7 +254,6 @@ ${JSON.stringify(cleanCurrentSteps)}
       fetchCategories();
     } catch (err) {
       console.error(err);
-
       alert("Error adding category");
     }
   };
@@ -262,9 +268,7 @@ ${JSON.stringify(cleanCurrentSteps)}
   // ================= INGREDIENTS =================
   const handleIngredientChange = (index, field, value) => {
     const updated = [...ingredients];
-
     updated[index][field] = value;
-
     setIngredients(updated);
   };
 
@@ -301,7 +305,6 @@ ${JSON.stringify(cleanCurrentSteps)}
   const handleSubmit = async () => {
     if (!title || !description) {
       alert("Fill all fields");
-
       return;
     }
 
@@ -317,14 +320,11 @@ ${JSON.stringify(cleanCurrentSteps)}
         title,
         description,
 
-        // USER
+        // USER (Admin UID)
         createdBy: uid,
         authorId: uid,
 
         // STATUS
-        visibility: "public",
-
-        // IMPORTANT
         status: "approved",
         featured,
 
@@ -373,7 +373,6 @@ ${JSON.stringify(cleanCurrentSteps)}
       alert("Recipe Added Successfully ✅");
     } catch (err) {
       console.error(err);
-
       alert("Error adding recipe");
     }
   };
@@ -392,13 +391,7 @@ ${JSON.stringify(cleanCurrentSteps)}
 
   return (
     <div className="page">
-      <h1
-        style={{
-          marginBottom: "25px",
-        }}
-      >
-        Dashboard - Recipes
-      </h1>
+      <h1 style={{ marginBottom: "25px" }}>Dashboard - Recipes</h1>
 
       <details>
         <summary
@@ -433,7 +426,6 @@ ${JSON.stringify(cleanCurrentSteps)}
             }}
           >
             {/* BASIC */}
-
             <input
               type="text"
               placeholder="Recipe Title"
@@ -524,7 +516,6 @@ ${JSON.stringify(cleanCurrentSteps)}
             </div>
 
             {/* EXTRA INFO */}
-
             <div
               style={{
                 display: "grid",
@@ -548,7 +539,6 @@ ${JSON.stringify(cleanCurrentSteps)}
 
               <div>
                 <p style={labelStyle}>Prep Time</p>
-
                 <input
                   type="text"
                   placeholder="0 mins"
@@ -560,7 +550,6 @@ ${JSON.stringify(cleanCurrentSteps)}
 
               <div>
                 <p style={labelStyle}>Cook Time</p>
-
                 <input
                   type="text"
                   placeholder="0 mins"
@@ -572,7 +561,6 @@ ${JSON.stringify(cleanCurrentSteps)}
 
               <div>
                 <p style={labelStyle}>Servings</p>
-
                 <input
                   type="number"
                   placeholder="0"
@@ -584,7 +572,6 @@ ${JSON.stringify(cleanCurrentSteps)}
             </div>
 
             {/* FEATURED */}
-
             <div
               style={{
                 background: "#1d1d1d",
@@ -610,7 +597,6 @@ ${JSON.stringify(cleanCurrentSteps)}
                 />
                 Featured Recipe
               </label>
-
               <p
                 style={{
                   opacity: 0.6,
@@ -624,7 +610,6 @@ ${JSON.stringify(cleanCurrentSteps)}
             </div>
 
             {/* CATEGORIES */}
-
             <div
               className="categories"
               style={{
@@ -644,36 +629,17 @@ ${JSON.stringify(cleanCurrentSteps)}
                   marginBottom: "15px",
                 }}
               >
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: "18px",
-                    fontWeight: "600",
-                  }}
-                >
+                <p style={{ margin: 0, fontSize: "18px", fontWeight: "600" }}>
                   Categories
                 </p>
-
-                <span
-                  style={{
-                    fontSize: "13px",
-                    opacity: 0.6,
-                  }}
-                >
+                <span style={{ fontSize: "13px", opacity: 0.6 }}>
                   {selectedCategories.length} selected
                 </span>
               </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: "10px",
-                }}
-              >
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
                 {categories.map((cat) => {
                   const active = selectedCategories.includes(cat.name);
-
                   return (
                     <button
                       key={cat.id}
@@ -701,13 +667,7 @@ ${JSON.stringify(cleanCurrentSteps)}
             </div>
 
             {/* INGREDIENTS */}
-
-            <div
-              className="ingredients"
-              style={{
-                marginBottom: "25px",
-              }}
-            >
+            <div className="ingredients" style={{ marginBottom: "25px" }}>
               <p style={sectionTitle}>Ingredients</p>
 
               {ingredients.map((item, index) => (
@@ -759,7 +719,6 @@ ${JSON.stringify(cleanCurrentSteps)}
             </div>
 
             {/* STEPS */}
-
             <div className="steps" style={{ marginBottom: "25px" }}>
               <p style={sectionTitle}>Steps</p>
 
@@ -810,7 +769,7 @@ ${JSON.stringify(cleanCurrentSteps)}
                   onClick={improveStepsWithAI}
                   style={{
                     ...secondaryButton,
-                    background: "#222",
+                    background: "#333",
                     border: "1px dashed #555",
                   }}
                 >
@@ -880,7 +839,6 @@ ${JSON.stringify(cleanCurrentSteps)}
             </div>
 
             {/* SUBMIT */}
-
             <button
               onClick={handleSubmit}
               style={{
@@ -896,12 +854,11 @@ ${JSON.stringify(cleanCurrentSteps)}
                 cursor: "pointer",
               }}
             >
-              Add Public Recipe
+              Add Recipe
             </button>
           </div>
 
           {/* CATEGORY MANAGER */}
-
           <div
             style={{
               width: "320px",
@@ -915,22 +872,12 @@ ${JSON.stringify(cleanCurrentSteps)}
             }}
           >
             <h3
-              style={{
-                marginTop: 0,
-                marginBottom: "20px",
-                fontSize: "22px",
-              }}
+              style={{ marginTop: 0, marginBottom: "20px", fontSize: "22px" }}
             >
               Category Manager
             </h3>
 
-            <div
-              style={{
-                display: "flex",
-                gap: "10px",
-                marginBottom: "20px",
-              }}
-            >
+            <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
               <input
                 type="text"
                 placeholder="New category..."
@@ -955,13 +902,7 @@ ${JSON.stringify(cleanCurrentSteps)}
               </button>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "10px",
-              }}
-            >
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
               {categories.map((cat) => (
                 <div
                   key={cat.id}
@@ -982,15 +923,9 @@ ${JSON.stringify(cleanCurrentSteps)}
         </div>
       </details>
 
-      <hr
-        style={{
-          margin: "40px 0",
-          borderColor: "#2a2a2a",
-        }}
-      />
+      <hr style={{ margin: "40px 0", borderColor: "#2a2a2a" }} />
 
       {/* RECIPES */}
-
       <div className="Recipes-Grid">
         {recipes.map((recipe) => (
           <div key={recipe.id} className="Recipe-Card">
@@ -1022,7 +957,6 @@ ${JSON.stringify(cleanCurrentSteps)}
 };
 
 // ================= STYLES =================
-
 const inputStyle = {
   width: "90%",
   padding: "14px",

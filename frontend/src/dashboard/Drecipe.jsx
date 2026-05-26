@@ -541,13 +541,7 @@ const Drecipe = () => {
               marginTop: "10px",
             }}
           >
-            <option value="private">
-              Private
-            </option>
-
-            <option value="public">
-              Public
-            </option>
+          
           </select>
         </div>
 

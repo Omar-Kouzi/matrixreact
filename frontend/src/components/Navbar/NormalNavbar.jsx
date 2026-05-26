@@ -88,7 +88,7 @@ const NormalNavbar = () => {
         <NavLink to="/recipes">Recipes</NavLink>
 
         {user && role === "admin" && (
-          <NavLink to="/dashboard">Dashboard</NavLink>
+          <NavLink to="/dashboard/Drecipes">Dashboard</NavLink>
         )}
 
         {!user ? (
