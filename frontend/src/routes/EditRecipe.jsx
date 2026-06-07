@@ -14,6 +14,37 @@ import {
 
 const ls = new SecureLS({ encodingType: "aes" });
 
+// ================= ENVIRONMENT DETECTION HELPER =================
+const fetchGeminiAI = async (payload) => {
+  const isLocal = window.location.hostname === "localhost";
+
+  if (isLocal) {
+    // Locally, hit Google directly using your React env key to avoid local proxy loops
+    const apiKey = process.env.REACT_APP_MATRIX_OPEN_AI;
+    if (!apiKey) {
+      alert("Missing REACT_APP_MATRIX_OPEN_AI in your local .env file!");
+      return null;
+    }
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
+    return res;
+  } else {
+    // In production on Vercel, securely use the isolated backend serverless function
+    const res = await fetch("/api/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    return res;
+  }
+};
+
 const EditRecipe = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -22,7 +53,7 @@ const EditRecipe = () => {
 
   const [recipe, setRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState(""); 
+  const [userRole, setUserRole] = useState("");
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -63,19 +94,13 @@ const EditRecipe = () => {
     try {
       setLoadingAIDesc(true);
 
-      // Secure internal call hitting your Vercel serverless proxy route
-      const res = await fetch("/api/gemini", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  text: `
+      const payload = {
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                text: `
 You are an expert culinary writer. 
 
 Rewrite this recipe description to be highly engaging, appetizing, and brief (around 2-3 sentences max). Make readers want to cook this dish.
@@ -84,16 +109,18 @@ Return a JSON object containing a single string property called "rewrittenDescri
 
 Current description:
 "${description}"
-                  `,
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            responseMimeType: "application/json",
+                `,
+              },
+            ],
           },
-        }),
-      });
+        ],
+        generationConfig: {
+          responseMimeType: "application/json",
+        },
+      };
+
+      const res = await fetchGeminiAI(payload);
+      if (!res) return;
 
       if (!res.ok) {
         const errText = await res.text();
@@ -130,19 +157,13 @@ Current description:
     try {
       setLoadingAI(true);
 
-      // Secure internal call hitting your Vercel serverless proxy route
-      const res = await fetch("/api/gemini", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  text: `
+      const payload = {
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                text: `
 You are a cooking assistant.
 
 Rewrite these cooking steps to be:
@@ -157,16 +178,18 @@ CRITICAL FORMATTING RULES:
 
 Steps to rewrite:
 ${JSON.stringify(steps)}
-                  `,
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            responseMimeType: "application/json",
+                `,
+              },
+            ],
           },
-        }),
-      });
+        ],
+        generationConfig: {
+          responseMimeType: "application/json",
+        },
+      };
+
+      const res = await fetchGeminiAI(payload);
+      if (!res) return;
 
       if (!res.ok) {
         const errText = await res.text();
