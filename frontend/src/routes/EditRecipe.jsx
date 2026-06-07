@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import SecureLS from "secure-ls";
 
 import { db } from "../assets/firebase/config";
-import { doc, updateDoc, deleteDoc, getDoc } from "firebase/firestore"; // 👈 Added getDoc
+import { doc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
 
 import { getRecipe, getCategories } from "../assets/firebase/firestore";
 
@@ -22,7 +22,7 @@ const EditRecipe = () => {
 
   const [recipe, setRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState(""); // 👈 Track user role
+  const [userRole, setUserRole] = useState(""); 
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -53,7 +53,6 @@ const EditRecipe = () => {
   const [existingImages, setExistingImages] = useState([]);
 
   // ================= HELPER FOR AI PERMISSIONS =================
-  // 👈 Check if user role qualifies for AI tools
   const hasAiAccess = userRole === "PUser" || userRole === "admin";
 
   // ================= AI DESCRIPTION FUNCTION =================
@@ -64,20 +63,19 @@ const EditRecipe = () => {
     try {
       setLoadingAIDesc(true);
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.REACT_APP_MATRIX_OPEN_AI}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: "user",
-                parts: [
-                  {
-                    text: `
+      // Secure internal call hitting your Vercel serverless proxy route
+      const res = await fetch("/api/gemini", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: `
 You are an expert culinary writer. 
 
 Rewrite this recipe description to be highly engaging, appetizing, and brief (around 2-3 sentences max). Make readers want to cook this dish.
@@ -86,17 +84,16 @@ Return a JSON object containing a single string property called "rewrittenDescri
 
 Current description:
 "${description}"
-                    `,
-                  },
-                ],
-              },
-            ],
-            generationConfig: {
-              responseMimeType: "application/json",
+                  `,
+                },
+              ],
             },
-          }),
-        },
-      );
+          ],
+          generationConfig: {
+            responseMimeType: "application/json",
+          },
+        }),
+      });
 
       if (!res.ok) {
         const errText = await res.text();
@@ -133,20 +130,19 @@ Current description:
     try {
       setLoadingAI(true);
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.REACT_APP_MATRIX_OPEN_AI}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: "user",
-                parts: [
-                  {
-                    text: `
+      // Secure internal call hitting your Vercel serverless proxy route
+      const res = await fetch("/api/gemini", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: `
 You are a cooking assistant.
 
 Rewrite these cooking steps to be:
@@ -161,17 +157,16 @@ CRITICAL FORMATTING RULES:
 
 Steps to rewrite:
 ${JSON.stringify(steps)}
-                    `,
-                  },
-                ],
-              },
-            ],
-            generationConfig: {
-              responseMimeType: "application/json",
+                  `,
+                },
+              ],
             },
-          }),
-        },
-      );
+          ],
+          generationConfig: {
+            responseMimeType: "application/json",
+          },
+        }),
+      });
 
       if (!res.ok) {
         const errText = await res.text();
@@ -207,7 +202,6 @@ ${JSON.stringify(steps)}
     const fetchData = async () => {
       setLoading(true);
 
-      // 1. Fetch user role first (Assuming users collection matches their uid)
       if (uid) {
         try {
           const userDoc = await getDoc(doc(db, "users", uid));
@@ -226,7 +220,6 @@ ${JSON.stringify(steps)}
         return;
       }
 
-      // 🔒 ONLY OWNER
       if (data.authorId !== uid) {
         alert("Not allowed");
         navigate(`/profile/${uid}`);
@@ -369,7 +362,6 @@ ${JSON.stringify(steps)}
         />
 
         {/* AI DESCRIPTION INTERFACE */}
-        {/* 🔒 RENDER CONDITIONALLY BASED ON ROLE */}
         {hasAiAccess && (
           <div style={{ marginBottom: "20px" }}>
             <button onClick={improveDescriptionWithAI} style={btnSecondary}>
@@ -528,7 +520,7 @@ ${JSON.stringify(steps)}
           />
         ))}
 
-        {/* ✅ AI STEPS SECTION (🔒 CONDITIONAL RENDER) */}
+        {/* AI STEPS SECTION */}
         {hasAiAccess && (
           <>
             <button onClick={improveStepsWithAI} style={btnPrimary}>
