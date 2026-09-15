@@ -6,9 +6,6 @@ import { useNavigate } from "react-router-dom";
 
 import SecureLS from "secure-ls";
 
-import { collection, getDocs } from "firebase/firestore";
-
-import { db } from "../assets/firebase/config";
 
 const ls = new SecureLS({
   encodingType: "aes",
@@ -32,20 +29,7 @@ const Recipes = () => {
       try {
         const allRecipes = await getRecipes();
 
-        // ================= GET USERS =================
-        const usersSnapshot = await getDocs(collection(db, "users"));
-
-        const users = usersSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-
-        // ================= ONLY ADMIN RECIPES =================
-        // const adminRecipes = allRecipes.filter((recipe) => {
-        //   const user = users.find((u) => u.id === recipe.authorId);
-
-        //   return user?.role === "admin";
-        // });
+  
 
         // ================= MY RECIPES =================
         const myRecipes = allRecipes.filter(
