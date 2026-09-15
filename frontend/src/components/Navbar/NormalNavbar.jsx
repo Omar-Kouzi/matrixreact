@@ -85,8 +85,8 @@ const NormalNavbar = () => {
 
       {/* Desktop nav */}
       <div className="Navigators">
-        <NavLink to="/">Home</NavLink>
-        <NavLink to="/recipes">Recipes</NavLink>
+        {/* <NavLink to="/">Home</NavLink> */}
+        <NavLink to="/">Recipes</NavLink>
 
         {user && role === "admin" && (
           <NavLink to="/dashboard/Drecipes">Dashboard</NavLink>
@@ -137,10 +137,10 @@ const NormalNavbar = () => {
           <FiX size={28} />
         </div>
 
-        <NavLink to="/" onClick={() => setOpen(false)}>
+        {/* <NavLink to="/" onClick={() => setOpen(false)}>
           Home
-        </NavLink>
-        <NavLink to="/recipes" onClick={() => setOpen(false)}>
+        </NavLink> */}
+        <NavLink to="/" onClick={() => setOpen(false)}>
           Recipes
         </NavLink>
 
