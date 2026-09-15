@@ -21,7 +21,6 @@ const Recipes = () => {
 
   const [sort, setSort] = useState("");
 
-  const [showOnlyMine, setShowOnlyMine] = useState(false);
 
   const navigate = useNavigate();
 
@@ -42,11 +41,11 @@ const Recipes = () => {
         }));
 
         // ================= ONLY ADMIN RECIPES =================
-        const adminRecipes = allRecipes.filter((recipe) => {
-          const user = users.find((u) => u.id === recipe.authorId);
+        // const adminRecipes = allRecipes.filter((recipe) => {
+        //   const user = users.find((u) => u.id === recipe.authorId);
 
-          return user?.role === "admin";
-        });
+        //   return user?.role === "admin";
+        // });
 
         // ================= MY RECIPES =================
         const myRecipes = allRecipes.filter(
@@ -54,18 +53,18 @@ const Recipes = () => {
         );
 
         // ================= SET =================
-        if (showOnlyMine) {
+        // if (showOnlyMine) {
           setRecipes(myRecipes);
-        } else {
-          setRecipes(adminRecipes);
-        }
+        // } else {
+        //   setRecipes(adminRecipes);
+        // }
       } catch (error) {
         console.error("Error fetching recipes:", error);
       }
     };
 
     fetchRecipes();
-  }, [showOnlyMine, uid]);
+  }, [recipes, uid]);
 
   // ================= FILTERS =================
   const processedRecipes = recipes
@@ -118,7 +117,7 @@ const Recipes = () => {
           </div>
 
           {/* SHOW MY RECIPES */}
-          <label
+          {/* <label
             style={{
               display: "flex",
               alignItems: "center",
@@ -133,14 +132,14 @@ const Recipes = () => {
               onChange={(e) => setShowOnlyMine(e.target.checked)}
             />
             Show Only My Recipes
-          </label>
+          </label> */}
         </div>
       </details>
 
       <hr />
 
       {/* ================= TITLE ================= */}
-      <h1>{showOnlyMine ? "My Recipes" : "Recipes"}</h1>
+      <h1>My Recipes</h1>
 
       {/* ================= EMPTY ================= */}
       {processedRecipes.length === 0 && (

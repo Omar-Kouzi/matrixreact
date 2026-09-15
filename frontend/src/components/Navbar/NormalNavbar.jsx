@@ -67,6 +67,7 @@ const NormalNavbar = () => {
       setUid(null);
       setRole(null);
       setOpen(false);
+      window.location.reload(); // 🔥 Refresh the page after logout
     } catch (error) {
       console.error("Logout error:", error);
     }

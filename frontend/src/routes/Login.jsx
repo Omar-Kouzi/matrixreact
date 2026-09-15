@@ -29,6 +29,7 @@ const Login = () => {
 
       saveLoginState(authUser.uid, role);
       navigate("/");
+      window.location.reload(); // 🔥 Refresh the page after Google Sign-In
     } catch (error) {
       console.error("Email auth error:", error.message);
       alert(error.message);
@@ -43,6 +44,7 @@ const Login = () => {
 
       saveLoginState(authUser.uid, role);
       navigate("/");
+      window.location.reload(); // 🔥 Refresh the page after Google Sign-In
     } catch (error) {
       console.error("Google Sign-In error:", error.message);
       alert(error.message);
@@ -68,7 +70,9 @@ const Login = () => {
           className="Login-Input"
         />
         <br />
-        <button onClick={handleEmailAuth}>{isSignup ? "Sign Up" : "Login"}</button>
+        <button onClick={handleEmailAuth}>
+          {isSignup ? "Sign Up" : "Login"}
+        </button>
         <button onClick={handleGoogleSignIn} className="Login-Gmail">
           Sign In with Google
         </button>
