@@ -3,7 +3,7 @@ import { FiMenu, FiX } from "react-icons/fi";
 import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../assets/firebase/config";
-
+import savedlogo from "../../assets/Logo.png";
 const DashboardNavbar = () => {
   const [logo, setLogo] = useState("");
   const [open, setOpen] = useState(false);
@@ -31,7 +31,7 @@ const DashboardNavbar = () => {
     <section className="Navbar">
       {/* 🔥 Logo */}
       {logo && <img src={logo} alt="icon" className="Navbar-Icon" />}
-      <img src="" alt="icon" className="Navbar-Icon" />
+      <img src={savedlogo} alt="icon" className="Navbar-Icon" />
       {/* Desktop Nav */}
       <div className="Navigators">
         <NavLink to="/">Home</NavLink>

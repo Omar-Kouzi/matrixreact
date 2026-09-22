@@ -8,7 +8,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../../assets/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
 import SecureLS from "secure-ls";
-
+import savedlogo from "../../assets/Logo.png";
 const ls = new SecureLS({ encodingType: "aes" });
 
 const NormalNavbar = () => {
@@ -46,7 +46,7 @@ const NormalNavbar = () => {
 
         if (snap.exists()) {
           const data = snap.data();
-          setLogo(data.logo || "");
+          setLogo(data.logo || savedlogo);
         }
       } catch (error) {
         console.error("Logo fetch error:", error);
@@ -78,7 +78,8 @@ const NormalNavbar = () => {
       {/* 🔥 Dynamic logo */}
       {logo && <img src={logo} alt="logo" className="Navbar-Icon" />}
       <img
-        src="https://cdn-icons-png.flaticon.com/512/6415/6415827.png"
+        src={savedlogo}
+        // src="https://cdn-icons-png.flaticon.com/512/6415/6415827.png"
         alt="icon"
         className="Navbar-Icon"
       />
@@ -88,9 +89,9 @@ const NormalNavbar = () => {
         {/* <NavLink to="/">Home</NavLink> */}
         <NavLink to="/">Recipes</NavLink>
 
-        {user && role === "admin" && (
+        {/* {user && role === "admin" && (
           <NavLink to="/dashboard/Drecipes">Dashboard</NavLink>
-        )}
+        )} */}
 
         {!user ? (
           <NavLink to="/login">
