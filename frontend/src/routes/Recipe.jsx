@@ -40,9 +40,6 @@ const Recipe = () => {
           return;
         }
 
-      
-      
-
         setRecipe(data);
 
         // CHECK LIKE
@@ -52,6 +49,7 @@ const Recipe = () => {
 
           if (userSnap.exists()) {
             const userData = userSnap.data();
+
             if (userData.likedRecipes?.includes(id)) {
               setLiked(true);
             }
@@ -121,9 +119,7 @@ const Recipe = () => {
 
       const foundRecipe = recipes.find(
         (r) =>
-          r.title?.toLowerCase().trim() ===
-            ingredientName.toLowerCase().trim() 
-        
+          r.title?.toLowerCase().trim() === ingredientName.toLowerCase().trim(),
       );
 
       if (foundRecipe) {
@@ -143,7 +139,7 @@ const Recipe = () => {
 
   // ================= SORTED INGREDIENTS =================
   const sortedIngredients = [...(recipe.ingredients || [])].sort((a, b) =>
-    (a.name || "").localeCompare(b.name || "")
+    (a.name || "").localeCompare(b.name || ""),
   );
 
   return (
@@ -169,8 +165,48 @@ const Recipe = () => {
 
           <p className="Recipe-Description">{recipe.description}</p>
 
+          {/* CATEGORIES */}
+          {recipe.categories?.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "8px",
+                marginTop: "16px",
+                marginBottom: "20px",
+              }}
+            >
+              {recipe.categories.map((category, index) => (
+                <span
+                  key={`${category}-${index}`}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    padding: "7px 13px",
+                    borderRadius: "999px",
+                    background: "rgba(255, 255, 255, 0.08)",
+                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                    color: "#fff",
+                    fontSize: "13px",
+                    fontWeight: "600",
+                    lineHeight: "1",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {category}
+                </span>
+              ))}
+            </div>
+          )}
+
           {/* LIKE */}
-          <div style={{ display: "flex", gap: "15px", marginBottom: "20px" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: "15px",
+              marginBottom: "20px",
+            }}
+          >
             <button
               onClick={handleLike}
               style={{
@@ -229,7 +265,13 @@ const Recipe = () => {
           <h2>Ingredients</h2>
 
           {sortedIngredients.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+              }}
+            >
               {sortedIngredients.map((ingredient, index) => (
                 <div
                   key={index}
@@ -266,9 +308,7 @@ const Recipe = () => {
                     )}
                   </div>
 
-                  <span style={{ opacity: 0.7 }}>
-                    {ingredient.quantity}
-                  </span>
+                  <span style={{ opacity: 0.7 }}>{ingredient.quantity}</span>
                 </div>
               ))}
             </div>

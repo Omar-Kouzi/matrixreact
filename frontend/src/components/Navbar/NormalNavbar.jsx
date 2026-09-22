@@ -14,7 +14,7 @@ const ls = new SecureLS({ encodingType: "aes" });
 const NormalNavbar = () => {
   const [user, setUser] = useState(null);
   const [uid, setUid] = useState(null);
-  const [role, setRole] = useState(null);
+  // const [role, setRole] = useState(null);
   const [open, setOpen] = useState(false);
   const [logo, setLogo] = useState(""); // 🔥 dynamic logo
 
@@ -28,11 +28,11 @@ const NormalNavbar = () => {
       }
     });
 
-    const storedUid = ls.get("uid");
-    const storedRole = ls.get("role");
+  //  const storedUid = ls.get("uid");
+  //  const storedRole = ls.get("role");
 
-    if (storedUid) setUid(storedUid);
-    if (storedRole) setRole(storedRole);
+  //if (storedUid) setUid(storedUid);
+    // if (storedRole) setRole(storedRole);
 
     return () => unsubscribe();
   }, []);
@@ -65,7 +65,7 @@ const NormalNavbar = () => {
 
       setUser(null);
       setUid(null);
-      setRole(null);
+  //    setRole(null);
       setOpen(false);
       window.location.reload(); // 🔥 Refresh the page after logout
     } catch (error) {
@@ -149,11 +149,11 @@ const NormalNavbar = () => {
           Contact
         </NavLink>
 
-        {user && role === "admin" && (
+        {/* {user && role === "admin" && (
           <NavLink to="/dashboard" onClick={() => setOpen(false)}>
             Dashboard
           </NavLink>
-        )}
+        )} */}
 
         {user && uid && (
           <div className="Navigators-Icons">
