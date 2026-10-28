@@ -1,205 +1,23 @@
 import { useEffect, useState } from "react";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "../assets/firebase/config";
-import { uploadImage } from "../assets/firebase/storage";
+import { getUsers, getRecipes, getAllDocuments } from "../assets/firebase/firestore";
+import { Link } from "react-router-dom";
+import "../styles/dashboard/AdminPanel.css";
 
-const Dhome = () => {
-  const [title, setTitle] = useState("");
-  const [logo, setLogo] = useState("");
-  const [background, setBackground] = useState("");
-
-  // Fetch home settings
-  const fetchData = async () => {
-    const ref = doc(db, "settings", "home");
-    const snap = await getDoc(ref);
-
-    if (snap.exists()) {
-      const data = snap.data();
-      setTitle(data.title || "");
-      setLogo(data.logo || "");
-      setBackground(data.background || "");
-    }
-  };
-
+export default function Dhome() {
+  const [stats, setStats] = useState({ users: 0, recipes: 0, requests: 0, pending: 0 });
+  const [error, setError] = useState("");
   useEffect(() => {
-    fetchData();
+    (async () => {
+      try {
+        const [users, recipes, requests] = await Promise.all([getUsers(), getRecipes(), getAllDocuments("subscriptionRequests")]);
+        setStats({ users: users.length, recipes: recipes.length, requests: requests.length, pending: requests.filter(r => !["active", "cancelled"].includes(r.status)).length });
+      } catch (e) { setError(e.message || "Could not load dashboard data. Check Firestore permissions."); }
+    })();
   }, []);
-
-  // Save changes
-  const handleSave = async () => {
-    let logoURL = logo;
-    let backgroundURL = background;
-
-    if (logo instanceof File) logoURL = await uploadImage(logo, "home");
-    if (background instanceof File)
-      backgroundURL = await uploadImage(background, "home");
-
-    await setDoc(doc(db, "settings", "home"), {
-      title,
-      logo: logoURL,
-      background: backgroundURL,
-    });
-
-    alert("Home settings updated!");
-  };
-
-  // Remove selected file
-  const handleRemoveFile = (type) => {
-    if (type === "logo") setLogo(null);
-    if (type === "background") setBackground(null);
-  };
-
-  return (
-    <div className="Dhome-page page" style={{ padding: "20px" }}>
-      <h1>Home Settings</h1>
-
-      {/* ===== Home Title ===== */}
-      <div style={{ marginBottom: "20px" }}>
-        <p>Home Title</p>
-        <input
-          type="text"
-          value={title}
-          placeholder="Enter home title"
-          onChange={(e) => setTitle(e.target.value)}
-        
-        />
-      </div>
-      <div className="Logo-Backround-uploader">
-        {/* ===== Logo ===== */}
-        <div style={{ marginBottom: "20px" }}>
-          <p>Logo</p>
-          {logo && (
-            <div
-              style={{
-                position: "relative",
-                display: "inline-block",
-                marginBottom: "5px",
-              }}
-            >
-              <img
-                src={logo instanceof File ? URL.createObjectURL(logo) : logo}
-                alt="logo"
-                style={{ width: "150px", borderRadius: "5px" }}
-              />
-              <button
-                onClick={() => handleRemoveFile("logo")}
-                style={{
-                  position: "absolute",
-                  top: "-5px",
-                  right: "-5px",
-                  background: "red",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "50%",
-                  cursor: "pointer",
-                  width: "20px",
-                  height: "20px",
-                }}
-              >
-                ×
-              </button>
-            </div>
-          )}
-          <div>
-            <button
-              className="custom-file-button"
-              onClick={() => document.getElementById("logoInput").click()}
-              style={{
-                backgroundColor: "#ffccd8",
-                padding: "8px 12px",
-                borderRadius: "5px",
-                marginTop: "5px",
-              }}
-            >
-              Upload Logo
-            </button>
-            <input
-              id="logoInput"
-              type="file"
-              accept="image/*"
-              style={{ display: "none" }}
-              onChange={(e) => setLogo(e.target.files[0])}
-            />
-          </div>
-        </div>
-
-        {/* ===== Background ===== */}
-        <div style={{ marginBottom: "20px" }}>
-          <p>Background</p>
-          {background && (
-            <div
-              style={{
-                position: "relative",
-                display: "inline-block",
-                marginBottom: "5px",
-              }}
-            >
-              <img
-                src={
-                  background instanceof File
-                    ? URL.createObjectURL(background)
-                    : background
-                }
-                alt="background"
-                style={{ width: "150px", borderRadius: "5px" }}
-              />
-              <button
-                onClick={() => handleRemoveFile("background")}
-                style={{
-                  position: "absolute",
-                  top: "-5px",
-                  right: "-5px",
-                  background: "red",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "50%",
-                  cursor: "pointer",
-                  width: "20px",
-                  height: "20px",
-                }}
-              >
-                ×
-              </button>
-            </div>
-          )}
-          <div>
-            <button
-              className="custom-file-button"
-              onClick={() => document.getElementById("backgroundInput").click()}
-              style={{
-                backgroundColor: "#ffccd8",
-                padding: "8px 12px",
-                borderRadius: "5px",
-                marginTop: "5px",
-              }}
-            >
-              Upload Background
-            </button>
-            <input
-              id="backgroundInput"
-              type="file"
-              accept="image/*"
-              style={{ display: "none" }}
-              onChange={(e) => setBackground(e.target.files[0])}
-            />
-          </div>
-        </div>
-      </div>
-      <button
-        onClick={handleSave}
-        style={{
-          marginTop: "20px",
-          width: "200px",
-          padding: "10px",
-          backgroundColor: "#ffccd8",
-          borderRadius: "5px",
-          fontWeight: "bold",
-        }}
-      >
-        Save
-      </button>
-    </div>
-  );
-};
-
-export default Dhome;
+  return <main className="admin-page page"><div className="admin-heading"><span>CONTROL CENTER</span><h1>Admin dashboard</h1><p>Manage Matrix recipes, plans, users, and subscription requests.</p></div>
+    {error && <p className="admin-error">{error}</p>}
+    <div className="admin-stats">{[["Users", stats.users], ["Member recipes", stats.recipes], ["Payment requests", stats.requests], ["Needs attention", stats.pending]].map(([label, value]) => <article className="admin-stat" key={label}><span>{label}</span><strong>{value}</strong></article>)}</div>
+    <div className="admin-link-grid"><Link to="/dashboard/home-settings"><strong>Home page settings</strong><span>Edit the existing homepage title, logo, and background.</span></Link><Link to="/dashboard/demo-recipes"><strong>Demo recipes</strong><span>Edit the public sample recipes.</span></Link><Link to="/dashboard/pricing"><strong>Subscription pricing</strong><span>Update Plus and Pro prices and allowances.</span></Link><Link to="/dashboard/users"><strong>Users & payments</strong><span>Track requests, mark messages received, manage payment methods, and activate subscriptions.</span></Link></div>
+    <p className="admin-security-note">Payment activation is a manual admin action. Only activate a subscription after verifying that payment has actually arrived.</p>
+  </main>;
+}

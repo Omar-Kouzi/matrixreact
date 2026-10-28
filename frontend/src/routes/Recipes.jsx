@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 
-import { getRecipes } from "../assets/firebase/firestore";
+import { getUserRecipes } from "../assets/firebase/firestore";
 
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 
 import SecureLS from "secure-ls";
+import { FaArrowRight } from "react-icons/fa6";
 
 
 const ls = new SecureLS({
@@ -25,30 +26,24 @@ const Recipes = () => {
 
   // ================= FETCH RECIPES =================
   useEffect(() => {
+    if (!uid) {
+      setRecipes([]);
+      return;
+    }
+
+    let cancelled = false;
     const fetchRecipes = async () => {
       try {
-        const allRecipes = await getRecipes();
-
-  
-
-        // ================= MY RECIPES =================
-        const myRecipes = allRecipes.filter(
-          (recipe) => recipe.authorId === uid,
-        );
-
-        // ================= SET =================
-        // if (showOnlyMine) {
-          setRecipes(myRecipes);
-        // } else {
-        //   setRecipes(adminRecipes);
-        // }
+        const myRecipes = await getUserRecipes(uid);
+        if (!cancelled) setRecipes(myRecipes);
       } catch (error) {
         console.error("Error fetching recipes:", error);
       }
     };
 
     fetchRecipes();
-  }, [recipes, uid]);
+    return () => { cancelled = true; };
+  }, [uid]);
 
   // ================= FILTERS =================
   const processedRecipes = recipes
@@ -74,113 +69,75 @@ const Recipes = () => {
       return 0;
     });
 
+  if (!uid) return <Navigate to="/login" replace />;
+
   return (
     <div className="Recipes-page page">
-      {/* ================= FILTERS ================= */}
-      <details className="Filter-Wraper">
-        <summary>filter</summary>
-
-        <div className="Filter">
-          {/* SEARCH */}
-          <input
-            type="text"
-            placeholder="Search recipes..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-
-          {/* SORT */}
-          <div className="Custom-Dropdown">
-            <select value={sort} onChange={(e) => setSort(e.target.value)}>
-              <option value="">Sort By</option>
-
-              <option value="name">Name (A-Z)</option>
-
-              <option value="newest">Newest</option>
-            </select>
-          </div>
-
-          {/* SHOW MY RECIPES */}
-          {/* <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              color: "#fff",
-              marginTop: "10px",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={showOnlyMine}
-              onChange={(e) => setShowOnlyMine(e.target.checked)}
-            />
-            Show Only My Recipes
-          </label> */}
+      <section className="Recipes-Content">
+        <div className="Matrix-Section-Heading Recipes-Heading">
+          <span className="Matrix-Eyebrow">YOUR PERSONAL COLLECTION</span>
+          <h1>My Recipes</h1>
+          <p>All the recipes you have saved in your own kitchen notebook.</p>
         </div>
-      </details>
 
-      <hr />
-
-      {/* ================= TITLE ================= */}
-      <h1>My Recipes</h1>
-
-      {/* ================= EMPTY ================= */}
-      {processedRecipes.length === 0 && (
-        <p
-          style={{
-            opacity: 0.7,
-            marginTop: "20px",
-          }}
-        >
-          No recipes found.
-        </p>
-      )}
-
-      {/* ================= GRID ================= */}
-      <div className="Recipes-Grid">
-        {processedRecipes.map((recipe) => (
-          <div key={recipe.id} className="Recipe-Card">
-            {/* IMAGE */}
-            <div className="Recipe-Image-Wrap">
-              <img
-                src={
-                  recipe.images?.[0] ||
-                  "https://dummyimage.com/300x300/222/fff&text=Recipe"
-                }
-                alt={recipe.title}
-                className="Recipe-Card-img"
-              />
-            </div>
-
-            {/* TITLE */}
-            <p
-              style={{
-                fontSize: "20px",
-                fontWeight: "700",
-                marginTop: "14px",
-              }}
-            >
-              {recipe.title}
-            </p>
-
-            {/* BUTTON */}
-            <div
-              className="recipe-buttons"
-              style={{
-                marginTop: "18px",
-              }}
-            >
-              <button
-                className="Recipe-Card-Button"
-                onClick={() => navigate(`/recipe/${recipe.id}`)}
-              >
-                View More
-              </button>
+        <details className="Filter-Wraper Recipes-Filter">
+          <summary>Search & sort recipes</summary>
+          <div className="Filter">
+            <input
+              type="text"
+              placeholder="Search recipes..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <div className="Custom-Dropdown">
+              <select value={sort} onChange={(e) => setSort(e.target.value)}>
+                <option value="">Sort By</option>
+                <option value="name">Name (A-Z)</option>
+                <option value="newest">Newest</option>
+              </select>
             </div>
           </div>
-        ))}
-      </div>
+        </details>
+
+        {processedRecipes.length === 0 ? (
+          <p className="Recipes-Empty">No recipes found. Add a recipe to start building your collection.</p>
+        ) : (
+          <div className="Matrix-Demo-Grid Recipes-Grid">
+            {processedRecipes.map((recipe, index) => {
+              const category = Array.isArray(recipe.categories)
+                ? recipe.categories[0] || "MY RECIPE"
+                : recipe.category || "MY RECIPE";
+              const prep = Number(recipe.prepTime) || 0;
+              const cook = Number(recipe.cookTime) || 0;
+              const totalTime = prep + cook;
+              const time = recipe.time || (totalTime > 0 ? `${totalTime} min` : "Your collection");
+              const description = recipe.description || "Your saved recipe, with ingredients and preparation details ready whenever you need them.";
+              const image = recipe.images?.[0] || recipe.image || "https://dummyimage.com/900x650/21121b/f2b9ca&text=Matrix+Recipe";
+              return (
+                <article className="Matrix-Demo-Card" key={recipe.id}>
+                  <button
+                    type="button"
+                    className="Matrix-Demo-Image-Link Recipes-Image-Button"
+                    onClick={() => navigate(`/recipe/${recipe.id}`)}
+                    aria-label={`View ${recipe.title || "recipe"}`}
+                  >
+                    <img src={image} alt={recipe.title || "Recipe"} loading="lazy" />
+                    <span className="Matrix-Demo-Number">{String(index + 1).padStart(2, "0")}</span>
+                  </button>
+                  <div className="Matrix-Demo-Card-Body">
+                    <div className="Matrix-Demo-Meta"><span>{category}</span><span>{time}</span></div>
+                    <h3>{recipe.title || "Untitled recipe"}</h3>
+                    <p>{description}</p>
+                    <button className="Matrix-Recipe-Link Recipes-View-Link" type="button" onClick={() => navigate(`/recipe/${recipe.id}`)}>
+                      View recipe <FaArrowRight />
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 };

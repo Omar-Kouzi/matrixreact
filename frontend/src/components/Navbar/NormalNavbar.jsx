@@ -14,7 +14,7 @@ const ls = new SecureLS({ encodingType: "aes" });
 const NormalNavbar = () => {
   const [user, setUser] = useState(null);
   const [uid, setUid] = useState(null);
-  // const [role, setRole] = useState(null);
+  const [role, setRole] = useState("customer");
   const [open, setOpen] = useState(false);
   const [logo, setLogo] = useState(""); // 🔥 dynamic logo
 
@@ -23,8 +23,19 @@ const NormalNavbar = () => {
       setUser(currentUser);
       if (currentUser) {
         setUid(currentUser.uid);
+        getDoc(doc(db, "users", currentUser.uid)).then((snap) => {
+          const data = snap.exists() ? snap.data() : {};
+          const nextRole = data.role === "admin" || data.isAdmin === true ? "admin" : "customer";
+          setRole(nextRole);
+          if (nextRole === "admin") ls.set("role", "admin");
+          else ls.remove("role");
+        }).catch((error) => {
+          console.error("Role lookup failed:", error);
+          setRole("customer");
+        });
       } else {
         setUid(null);
+        setRole("customer");
       }
     });
 
@@ -65,7 +76,7 @@ const NormalNavbar = () => {
 
       setUser(null);
       setUid(null);
-  //    setRole(null);
+      setRole("customer");
       setOpen(false);
       window.location.reload(); // 🔥 Refresh the page after logout
     } catch (error) {
@@ -86,12 +97,11 @@ const NormalNavbar = () => {
 
       {/* Desktop nav */}
       <div className="Navigators">
-        {/* <NavLink to="/">Home</NavLink> */}
-        <NavLink to="/">Recipes</NavLink>
+        <NavLink to="/">Home</NavLink>
+        {user && <NavLink to="/recipes">My Recipes</NavLink>}
+        <NavLink to="/subscription">Plans</NavLink>
 
-        {/* {user && role === "admin" && (
-          <NavLink to="/dashboard/Drecipes">Dashboard</NavLink>
-        )} */}
+        {user && role === "admin" && <NavLink to="/dashboard/">Dashboard</NavLink>}
 
         {!user ? (
           <NavLink to="/login">
@@ -138,22 +148,11 @@ const NormalNavbar = () => {
           <FiX size={28} />
         </div>
 
-        {/* <NavLink to="/" onClick={() => setOpen(false)}>
-          Home
-        </NavLink> */}
-        <NavLink to="/" onClick={() => setOpen(false)}>
-          Recipes
-        </NavLink>
+        <NavLink to="/" onClick={() => setOpen(false)}>Home</NavLink>
+        {user && <NavLink to="/recipes" onClick={() => setOpen(false)}>My Recipes</NavLink>}
+        <NavLink to="/subscription" onClick={() => setOpen(false)}>Plans</NavLink>
 
-        <NavLink to="/contact" onClick={() => setOpen(false)}>
-          Contact
-        </NavLink>
-
-        {/* {user && role === "admin" && (
-          <NavLink to="/dashboard" onClick={() => setOpen(false)}>
-            Dashboard
-          </NavLink>
-        )} */}
+        {user && role === "admin" && <NavLink to="/dashboard/" onClick={() => setOpen(false)}>Dashboard</NavLink>}
 
         {user && uid && (
           <div className="Navigators-Icons">

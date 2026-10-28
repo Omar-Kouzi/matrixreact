@@ -36,7 +36,11 @@ const DashboardNavbar = () => {
       <div className="Navigators">
         <NavLink to="/">Home</NavLink>
         {/* <NavLink to="/dashboard/">HomeDash</NavLink> */}
-        <NavLink to="/dashboard/Drecipes">Recipes</NavLink>
+        <NavLink to="/dashboard/">Overview</NavLink>
+        <NavLink to="/dashboard/home-settings">Home settings</NavLink>
+        <NavLink to="/dashboard/demo-recipes">Demo recipes</NavLink>
+        <NavLink to="/dashboard/pricing">Pricing</NavLink>
+        <NavLink to="/dashboard/users">Users & payments</NavLink>
         {/* <NavLink to="/dashboard/Drequestedrecipes">Requested Recipes</NavLink> */}
       </div>
 
@@ -62,9 +66,11 @@ const DashboardNavbar = () => {
         {/* <NavLink to="/dashboard/" onClick={() => setOpen(false)}>
           HomeDash
         </NavLink> */}
-        <NavLink to="/dashboard/Drecipes" onClick={() => setOpen(false)}>
-          Recipes
-        </NavLink>{" "}
+        <NavLink to="/dashboard/" onClick={() => setOpen(false)}>Overview</NavLink>
+        <NavLink to="/dashboard/home-settings" onClick={() => setOpen(false)}>Home settings</NavLink>
+        <NavLink to="/dashboard/demo-recipes" onClick={() => setOpen(false)}>Demo recipes</NavLink>
+        <NavLink to="/dashboard/pricing" onClick={() => setOpen(false)}>Pricing</NavLink>
+        <NavLink to="/dashboard/users" onClick={() => setOpen(false)}>Users & payments</NavLink>
         {/* <NavLink
           to="/dashboard/Drequestedrecipes"
           onClick={() => setOpen(false)}

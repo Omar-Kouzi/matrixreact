@@ -2,10 +2,11 @@
 import { useEffect, useState } from "react";
 import SecureLS from "secure-ls";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { getActiveSubscription } from "../assets/firebase/subscriptions";
 
 import { db } from "../assets/firebase/config";
 
-import { getRecipes } from "../assets/firebase/firestore";
+import { getUserRecipes, getRecipe } from "../assets/firebase/firestore";
 
 import { useNavigate } from "react-router-dom";
 
@@ -47,7 +48,6 @@ const Profile = () => {
         const data = docSnap.data();
 
         setUser(data);
-
         setTempData(data);
       }
     };
@@ -59,19 +59,17 @@ const Profile = () => {
   useEffect(() => {
     const fetchRecipesData = async () => {
       try {
-        const allRecipes = await getRecipes();
-
-        // ================= MY RECIPES =================
-        const myRecipes = allRecipes.filter((r) => r.authorId === uid);
-
+        const myRecipes = await getUserRecipes(uid);
         setRecipes(myRecipes);
 
-        // ================= LIKED RECIPES =================
-        const liked = allRecipes.filter((recipe) =>
-          user?.likedRecipes?.includes(recipe.id),
-        );
-
-        setLikedRecipes(liked);
+        // Private recipes belonging to other users are intentionally not readable.
+        // Keep any public recipes the user liked, and skip inaccessible old entries.
+        const likedIds = Array.isArray(user?.likedRecipes) ? user.likedRecipes : [];
+        const liked = await Promise.all(likedIds.map(async (recipeId) => {
+          try { return await getRecipe(recipeId); }
+          catch { return null; }
+        }));
+        setLikedRecipes(liked.filter(Boolean));
       } catch (err) {
         console.error(err);
       }
@@ -113,7 +111,8 @@ const Profile = () => {
   // ================= WATCH AD =================
   const handleAddRecipe = async () => {
     // admins skip ads
-    if (user?.role === "admin") {
+    const currentSubscription = getActiveSubscription(user || {});
+    if (currentSubscription !== "free") {
       navigate("/add-recipe");
 
       return;
@@ -139,6 +138,10 @@ const Profile = () => {
   };
 
   if (!user) return <div className="page">Loading...</div>;
+
+  const subscription = getActiveSubscription(user);
+  const isPlus = subscription === "plus" || subscription === "pro";
+  const subscriptionEnd = user.subscriptionEndDate?.toDate ? user.subscriptionEndDate.toDate() : user.subscriptionEndDate ? new Date(user.subscriptionEndDate) : null;
 
   return (
     <div className="page">
@@ -190,11 +193,25 @@ const Profile = () => {
           <p>{user.email}</p>
         </div>
 
-        <div>
-          <h3>Role:</h3>
-
-          <p>{user.role}</p>
+        <div className="profile-subscription-row">
+          <h3>Plan:</h3>
+          <p className={`profile-subscription-badge ${isPlus ? "plus" : "free"}`}>
+            {subscription === "pro" ? "Pro" : isPlus ? "Plus" : "Free"}
+          </p>
         </div>
+      </div>
+
+      <p className={`profile-subscription-message ${isPlus ? "plus" : "free"}`}>
+        {subscription === "pro"
+          ? "You’re on Matrix Pro, including AI tools and a 50-recipe monthly allowance."
+          : subscription === "plus"
+            ? "You’re on Matrix Plus, including a 20-recipe monthly allowance."
+            : "You’re on the Free plan. Upgrade to Plus or Pro for more room and features."}
+      </p>
+      <div className="profile-subscription-dates">
+        <p><strong>Subscription starts:</strong> {user.subscriptionStartDate?.toDate ? user.subscriptionStartDate.toDate().toLocaleDateString() : user.subscriptionStartDate ? new Date(user.subscriptionStartDate).toLocaleDateString() : "Not subscribed"}</p>
+        <p><strong>Renews / expires:</strong> {subscriptionEnd && isPlus ? subscriptionEnd.toLocaleDateString() : "—"}</p>
+        <button type="button" onClick={() => navigate("/subscription")}>View plans</button>
       </div>
 
       {/* ================= ADD RECIPE ================= */}
@@ -215,7 +232,7 @@ const Profile = () => {
       >
         {adLoading
           ? "Loading Ad..."
-          : user.role === "admin"
+          : isPlus
             ? "Add Recipe"
             : "Watch Ad & Add Recipe"}
       </button>

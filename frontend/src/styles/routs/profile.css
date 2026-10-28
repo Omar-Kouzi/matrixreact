@@ -44,3 +44,46 @@
   flex-wrap: wrap;
   
 }
+
+
+.profile-subscription-row .profile-subscription-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 220px;
+  min-height: 30px;
+  height: auto;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  font-weight: 700;
+  overflow: visible;
+}
+
+.profile-subscription-row .profile-subscription-badge.free {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text, #fff);
+}
+
+.profile-subscription-row .profile-subscription-badge.plus {
+  background: var(--accent);
+  color: #fff;
+}
+
+.profile-subscription-message {
+  max-width: 620px;
+  margin: 0 10px 20px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  line-height: 1.5;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.profile-subscription-message.free {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.profile-subscription-message.plus {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: var(--accent);
+}

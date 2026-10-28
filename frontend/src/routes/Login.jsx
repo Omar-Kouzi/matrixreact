@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { signInWithGoogle, login, signup } from "../assets/firebase/auth";
 import { getUser } from "../assets/firebase/firestore";
+import { getActiveSubscription } from "../assets/firebase/subscriptions";
 import SecureLS from "secure-ls";
 
 const ls = new SecureLS({ encodingType: "aes" });
@@ -12,11 +13,14 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [isSignup, setIsSignup] = useState(false);
 
-  const saveLoginState = (uid, role) => {
-    ls.set("Loggedin", "true"); // string
+  const saveLoginState = (uid, subscription, role) => {
+    ls.set("Loggedin", "true");
     ls.set("uid", uid);
-    ls.set("role", role); // "customer" or "admin"
+    ls.set("subscription", subscription || "free");
+    if (role === "admin") ls.set("role", "admin");
+    else ls.remove("role");
   };
+
 
   const handleEmailAuth = async () => {
     try {
@@ -25,9 +29,8 @@ const Login = () => {
         : await login(email, password);
 
       const userDoc = await getUser(authUser.uid);
-      const role = userDoc?.user || "customer";
-
-      saveLoginState(authUser.uid, role);
+      const subscription = getActiveSubscription(userDoc || {});
+      saveLoginState(authUser.uid, subscription, userDoc?.role === "admin" || userDoc?.isAdmin === true ? "admin" : "customer");
       navigate("/");
       window.location.reload(); // 🔥 Refresh the page after Google Sign-In
     } catch (error) {
@@ -40,9 +43,8 @@ const Login = () => {
     try {
       const authUser = await signInWithGoogle();
       const userDoc = await getUser(authUser.uid);
-      const role = userDoc?.role || "customer";
-
-      saveLoginState(authUser.uid, role);
+      const subscription = getActiveSubscription(userDoc || {});
+      saveLoginState(authUser.uid, subscription, userDoc?.role === "admin" || userDoc?.isAdmin === true ? "admin" : "customer");
       navigate("/");
       window.location.reload(); // 🔥 Refresh the page after Google Sign-In
     } catch (error) {

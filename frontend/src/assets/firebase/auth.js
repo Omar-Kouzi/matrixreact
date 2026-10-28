@@ -17,7 +17,9 @@ const createDefaultUserDoc = async (uid, email) => {
     await setUserWithId(uid, {
       id: uid,
       email,
-      role: "user", // default role
+      subscription: "free", // free | plus | pro
+      subscriptionStartDate: new Date(),
+      subscriptionEndDate: null,
       createdAt: new Date(),
     });
   }

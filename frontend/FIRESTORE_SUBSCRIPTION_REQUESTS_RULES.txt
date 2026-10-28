@@ -1,0 +1,50 @@
+MATRIX — MERGE THIS INTO YOUR EXISTING FIRESTORE RULES
+
+IMPORTANT: This is a collection rule snippet, not a complete replacement for your rules file. Open Firebase Console > Firestore Database > Rules and merge the helper functions and match block into the existing rules. Do not replace other Matrix collection rules.
+
+If your rules already define signedIn() or isAdmin(), reuse the existing functions instead of defining duplicates.
+
+function signedIn() {
+  return request.auth != null;
+}
+
+function isAdmin() {
+  return signedIn()
+    && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+    && (
+      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"
+      || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
+    );
+}
+
+match /subscriptionRequests/{requestId} {
+  // Admin can list/read all requests; customers can read their own request.
+  allow read: if isAdmin()
+    || (signedIn() && resource.data.uid == request.auth.uid);
+
+  // Customers can create only a request for their own authenticated account.
+  allow create: if signedIn()
+    && request.resource.data.uid == request.auth.uid
+    && request.resource.data.status == "requested"
+    && request.resource.data.messageReceived == false
+    && request.resource.data.paymentReceived == false
+    && request.resource.data.plan in ["plus", "pro"]
+    && request.resource.data.billing in ["monthly", "yearly"]
+    && request.resource.data.keys().hasAll([
+      "uid", "name", "email", "plan", "planName", "billing", "price",
+      "status", "messageReceived", "paymentReceived", "paymentMethod",
+      "createdAt", "updatedAt"
+    ])
+    && request.resource.data.keys().hasOnly([
+      "uid", "name", "email", "plan", "planName", "billing", "price",
+      "status", "messageReceived", "paymentReceived", "paymentMethod",
+      "createdAt", "updatedAt"
+    ]);
+
+  // Only admin can update tracking stages, admin notes, payment, or delete requests.
+  allow update, delete: if isAdmin();
+}
+
+After publishing, test with a normal signed-in account: submit a request, confirm it appears in users/subscriptionRequests, then sign in as admin and confirm the dashboard can list and update it. Never make this collection publicly writable.
+
+If Firebase says isAdmin() cannot read users/{uid}, merge the users rules so a user can read their own user document and an admin can read user documents; keep ordinary users from changing role/isAdmin or subscription/payment fields.

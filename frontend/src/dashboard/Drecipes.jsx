@@ -12,6 +12,7 @@ import {
 import { NavLink } from "react-router-dom";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../assets/firebase/config";
+import { fetchGeminiAI } from "../assets/firebase/secureApi";
 const ls = new SecureLS({
   encodingType: "aes",
 });
@@ -68,9 +69,9 @@ const Drecipes = () => {
       const data = await getRecipes();
       // ONLY SHOW RECIPES CREATED BY THIS ADMIN
       const adminRecipes = data.filter((recipe) => {
-        const user = users.find((u) => u.id === recipe.authorId);
+        const user = users.find((u) => u.id === (recipe.authorId || recipe.createdBy));
 
-        return user?.role === "admin";
+        return user?.role === "admin" || user?.isAdmin === true;
       });
       setRecipes(adminRecipes);
     } catch (err) {
@@ -100,8 +101,8 @@ const Drecipes = () => {
     try {
       setLoadingAIDesc(true);
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.REACT_APP_MATRIX_OPEN_AI}`,
+      const res = await fetchGeminiAI(
+        "/api/gemini",
         {
           method: "POST",
           headers: {
@@ -172,8 +173,8 @@ Current description:
     try {
       setLoadingAI(true);
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.REACT_APP_MATRIX_OPEN_AI}`,
+      const res = await fetchGeminiAI(
+        "/api/gemini",
         {
           method: "POST",
           headers: {
@@ -326,6 +327,7 @@ ${JSON.stringify(cleanCurrentSteps)}
 
         // STATUS
         status: "approved",
+        visibility: "public",
         featured,
 
         // RECIPE DATA

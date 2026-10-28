@@ -5,21 +5,12 @@ import SecureLS from "secure-ls";
 
 const ls = new SecureLS({ encodingType: "aes" });
 
-function Navbar() {
+export default function Navbar() {
   const location = useLocation();
   const isDashboardRoute = location.pathname.startsWith("/dashboard");
-
-  // Get user info from SecureLS
   const loggedIn = ls.get("Loggedin") === "true";
-  const role = ls.get("role") || "customer";
+  const role = ls.get("role");
 
-  // Dashboard navbar only for admin users
-  if (isDashboardRoute && loggedIn && role === "admin") {
-    return <DashboardNavbar />;
-  }
-
-  // Default to normal navbar for all other cases
+  if (isDashboardRoute && loggedIn && role === "admin") return <DashboardNavbar />;
   return <NormalNavbar />;
 }
-
-export default Navbar;

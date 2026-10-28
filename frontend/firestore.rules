@@ -1,0 +1,117 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin'
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true
+        );
+    }
+
+    function isRecipeOwner() {
+      return signedIn()
+        && (
+          resource.data.get('authorId', '') == request.auth.uid
+          || resource.data.get('createdBy', '') == request.auth.uid
+        );
+    }
+
+    // User profiles: users can read their own profile; administrators can manage all.
+    match /users/{userId} {
+      allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
+
+      // New profiles can only be created as Free accounts. Privileged fields are not accepted.
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly([
+          'id', 'email', 'subscription', 'subscriptionStartDate',
+          'subscriptionEndDate', 'createdAt'
+        ])
+        && request.resource.data.get('id', userId) == userId
+        && request.resource.data.get('subscription', 'free') == 'free';
+
+      // A user may edit basic profile details and their own saved-recipe list only.
+      // Subscription, expiry, role, admin flags, payment method and audit fields are protected.
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name', 'likedRecipes', 'updatedAt'
+          ])
+          && (!('name' in request.resource.data)
+            || (request.resource.data.name is string && request.resource.data.name.size() <= 100))
+          && (!('likedRecipes' in request.resource.data)
+            || (request.resource.data.likedRecipes is list && request.resource.data.likedRecipes.size() <= 1000))
+        );
+
+      allow delete: if isAdmin();
+    }
+
+    // Subscription requests are created through the server so the plan price,
+    // account UID, and request metadata cannot be spoofed by the browser.
+    match /subscriptionRequests/{requestId} {
+      allow create: if isAdmin();
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.get('uid', '') == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
+    // Member recipes are private by default. Only owners/admins or explicitly
+    // published, approved recipes can be read. Public queries must filter by both fields.
+    // Normal users create through /api/recipes so monthly limits are server-enforced.
+    match /recipes/{recipeId} {
+      allow read: if isAdmin()
+        || isRecipeOwner()
+        || (
+          resource.data.get('status', '') == 'approved'
+          && resource.data.get('visibility', 'private') == 'public'
+        );
+      allow create: if isAdmin();
+
+      allow update: if isAdmin()
+        || (
+          isRecipeOwner()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'title', 'description', 'prepTime', 'cookTime', 'servings',
+            'difficulty', 'status', 'categories', 'ingredients', 'steps',
+            'images', 'updatedAt'
+          ])
+          && (!('status' in request.resource.data)
+            || request.resource.data.status in ['draft', 'pending', 'approved'])
+        )
+        // Like count updates are allowed separately from recipe-content edits.
+        // The +/- 1 check prevents arbitrary large jumps in a single write.
+        || (
+          signedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+          && request.resource.data.get('likes', 0) is int
+          && request.resource.data.get('likes', 0) >= 0
+          && (
+            request.resource.data.get('likes', 0) == resource.data.get('likes', 0) + 1
+            || request.resource.data.get('likes', 0) == resource.data.get('likes', 0) - 1
+          )
+        );
+
+      allow delete: if isAdmin() || isRecipeOwner();
+    }
+
+    // Shared categories and site settings are public to read but admin-managed to write.
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}

@@ -2,10 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../assets/firebase/config";
+import { getActiveSubscription } from "../assets/firebase/subscriptions";
+import { fetchGeminiAI, createRecipeSecurely } from "../assets/firebase/secureApi";
+import { imageFileToJpegBase64 } from "../assets/firebase/imageToBase64";
 import SecureLS from "secure-ls";
 
 import {
-  addRecipe,
   getCategories,
   addCategory,
 } from "../assets/firebase/firestore";
@@ -198,24 +202,57 @@ const AddRecipe = () => {
   // ================= SUBMIT =================
 
   const [saving, setSaving] = useState(false);
+  const [userSubscription, setUserSubscription] = useState("free");
+  const [subscriptionLoaded, setSubscriptionLoaded] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [planRecipeLimits, setPlanRecipeLimits] = useState({ free: 3, plus: 20, pro: 50 });
+  const hasAiAccess = subscriptionLoaded && userSubscription === "pro";
+  const monthlyRecipeLimit = planRecipeLimits[userSubscription] || 3;
 
   // ============================================================
   // ================= FETCH CATEGORIES =========================
   // ============================================================
 
   useEffect(() => {
-    const fetchCategories = async () => {
+    let cancelled = false;
+    const loadPageData = async () => {
       try {
-        const data = await getCategories();
-
-        setCategories(data || []);
+        const [categoryData, userSnapshot, planSnapshot] = await Promise.all([
+          getCategories(),
+          uid ? getDoc(doc(db, "users", uid)) : Promise.resolve(null),
+          getDoc(doc(db, "settings", "subscriptionPlans")),
+        ]);
+        if (cancelled) return;
+        setCategories(categoryData || []);
+        if (planSnapshot?.exists()) {
+          const savedPlans = planSnapshot.data()?.plans || {};
+          setPlanRecipeLimits((previous) => ({
+            ...previous,
+            plus: Number(savedPlans.plus?.monthlyRecipeLimit) > 0 ? Number(savedPlans.plus.monthlyRecipeLimit) : previous.plus,
+            pro: Number(savedPlans.pro?.monthlyRecipeLimit) > 0 ? Number(savedPlans.pro.monthlyRecipeLimit) : previous.pro,
+          }));
+        }
+        if (userSnapshot?.exists()) {
+          const userData = userSnapshot.data();
+          setUserSubscription(getActiveSubscription(userData));
+          setIsAdmin(userData.role === "admin" || userData.isAdmin === true);
+        } else {
+          setUserSubscription("free");
+          setIsAdmin(false);
+        }
       } catch (error) {
-        console.error("Categories error:", error);
+        console.error("Add recipe setup error:", error);
+        if (!cancelled) {
+          setUserSubscription("free");
+          setIsAdmin(false);
+        }
+      } finally {
+        if (!cancelled) setSubscriptionLoaded(true);
       }
     };
-
-    fetchCategories();
-  }, []);
+    loadPageData();
+    return () => { cancelled = true; };
+  }, [uid]);
 
   // ============================================================
   // ================= CATEGORY FUNCTIONS =======================
@@ -813,56 +850,25 @@ const AddRecipe = () => {
   // ================= IMAGE TO BASE64 ==========================
   // ============================================================
 
-  const fileToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-
-      reader.onload = () => {
-        const result = reader.result;
-
-        if (typeof result !== "string") {
-          reject(new Error("Could not read image."));
-          return;
-        }
-
-        const base64 = result.split(",")[1];
-
-        resolve(base64);
-      };
-
-      reader.onerror = () => {
-        reject(new Error("Could not read image."));
-      };
-
-      reader.readAsDataURL(file);
-    });
-  };
 
   // ============================================================
   // ================= AI IMAGE RECIPE ==========================
   // ============================================================
 
   const analyzeRecipeImageWithAI = async () => {
+    if (!hasAiAccess) { alert("AI tools are available on the Pro plan only."); return; }
     if (!recipeImage) {
       alert("Please select a recipe image first.");
-      return;
-    }
-
-    if (!process.env.REACT_APP_MATRIX_OPEN_AI) {
-      alert("AI API key is not configured.");
-
-      console.error("Missing REACT_APP_MATRIX_OPEN_AI environment variable.");
-
       return;
     }
 
     try {
       setLoadingImageAI(true);
 
-      const base64Image = await fileToBase64(recipeImage);
+      const base64Image = await imageFileToJpegBase64(recipeImage);
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.REACT_APP_MATRIX_OPEN_AI}`,
+      const response = await fetchGeminiAI(
+        "/api/gemini",
         {
           method: "POST",
 
@@ -958,7 +964,7 @@ The purpose is transcription and organization, NOT recipe invention.
 
                   {
                     inlineData: {
-                      mimeType: recipeImage.type,
+                      mimeType: "image/jpeg",
                       data: base64Image,
                     },
                   },
@@ -1154,16 +1160,9 @@ The purpose is transcription and organization, NOT recipe invention.
   // ============================================================
 
   const improveDescriptionWithAI = async () => {
+    if (!hasAiAccess) { alert("AI tools are available on the Pro plan only."); return; }
     if (!description.trim()) {
       alert("Please enter a description first.");
-
-      return;
-    }
-
-    if (!process.env.REACT_APP_MATRIX_OPEN_AI) {
-      alert("AI API key is not configured.");
-
-      console.error("Missing REACT_APP_MATRIX_OPEN_AI environment variable.");
 
       return;
     }
@@ -1172,8 +1171,8 @@ The purpose is transcription and organization, NOT recipe invention.
       setLoadingAIDesc(true);
       setAiDescription(null);
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.REACT_APP_MATRIX_OPEN_AI}`,
+      const response = await fetchGeminiAI(
+        "/api/gemini",
         {
           method: "POST",
 
@@ -1282,6 +1281,7 @@ ${JSON.stringify(description)}`,
   // ============================================================
 
   const improveStepsWithAI = async () => {
+    if (!hasAiAccess) { alert("AI tools are available on the Pro plan only."); return; }
     const cleanCurrentSteps = steps.map((step) => step.trim()).filter(Boolean);
 
     if (cleanCurrentSteps.length === 0) {
@@ -1290,20 +1290,12 @@ ${JSON.stringify(description)}`,
       return;
     }
 
-    if (!process.env.REACT_APP_MATRIX_OPEN_AI) {
-      alert("AI API key is not configured.");
-
-      console.error("Missing REACT_APP_MATRIX_OPEN_AI environment variable.");
-
-      return;
-    }
-
     try {
       setLoadingAI(true);
       setAiSteps(null);
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.REACT_APP_MATRIX_OPEN_AI}`,
+      const response = await fetchGeminiAI(
+        "/api/gemini",
         {
           method: "POST",
 
@@ -1460,10 +1452,18 @@ ${JSON.stringify(cleanCurrentSteps)}`,
       return;
     }
 
+    if (!subscriptionLoaded) {
+      alert("Please wait while your subscription is checked.");
+      return;
+    }
+
     try {
       setSaving(true);
 
-      await addRecipe({
+      // The server verifies identity, active plan, and the monthly recipe limit.
+      // Recipe images are temporary for preview/cropping/AI analysis only.
+      // Firebase Storage is not required to create a recipe.
+      const createResponse = await createRecipeSecurely({
         title: title.trim(),
         description: description.trim(),
 
@@ -1491,6 +1491,15 @@ ${JSON.stringify(cleanCurrentSteps)}`,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+      if (!createResponse.ok) {
+        const result = await createResponse.json().catch(() => ({}));
+        if (createResponse.status === 429) {
+          alert(result.error || "You have reached your monthly recipe limit.");
+          navigate("/subscription");
+          return;
+        }
+        throw new Error(result.error || "Could not save the recipe.");
+      }
 
       setTitle("");
       setDescription("");
@@ -1521,11 +1530,11 @@ ${JSON.stringify(cleanCurrentSteps)}`,
 
       alert("Recipe Added Successfully ✅");
 
-      navigate("/dashboard/Drecipes");
+      navigate({ pathname: `/profile/${uid}` });
     } catch (error) {
       console.error("Error adding recipe:", error);
 
-      alert("Error adding recipe. Please try again.");
+      alert(error.message || "Error adding recipe. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -1539,11 +1548,16 @@ ${JSON.stringify(cleanCurrentSteps)}`,
     <div className="page">
       <h1
         style={{
-          marginBottom: "25px",
+          marginBottom: "12px",
         }}
       >
         Add Recipe
       </h1>
+      <p style={{ color: "#c9b9c0", margin: "0 0 22px" }}>
+        Plan: <strong style={{ color: "var(--accent)" }}>{subscriptionLoaded ? userSubscription.toUpperCase() : "Checking…"}</strong>
+        {subscriptionLoaded && <> · Monthly recipe limit: <strong>{monthlyRecipeLimit}</strong></>}
+        {userSubscription !== "pro" && subscriptionLoaded && <> · AI tools are available on Pro.</>}
+      </p>
 
       <div
         className="Dashboard-Add-Recipe"
@@ -1575,7 +1589,7 @@ ${JSON.stringify(cleanCurrentSteps)}`,
               fontWeight: "700",
             }}
           >
-            🤖 Import Recipe from Image
+            🖼️ Add Recipe Image
           </p>
 
           <p
@@ -1586,8 +1600,7 @@ ${JSON.stringify(cleanCurrentSteps)}`,
               lineHeight: "1.5",
             }}
           >
-            Take a photo or choose a photo of a handwritten or printed recipe.
-            You can crop it before AI reads it.
+            Choose an image to analyze a handwritten or printed recipe with AI. Images are processed temporarily in this form and are not saved to Firebase Storage yet.
           </p>
 
           {/* ================================================== */}
@@ -1665,7 +1678,7 @@ ${JSON.stringify(cleanCurrentSteps)}`,
                 opacity: loadingImageAI ? 0.6 : 1,
               }}
             >
-              🖼️ Choose Image
+              ➕ Add Image
             </button>
           </div>
 
@@ -1718,23 +1731,27 @@ ${JSON.stringify(cleanCurrentSteps)}`,
                   ✂️ Crop Image
                 </button>
 
-                <button
-                  type="button"
-                  onClick={analyzeRecipeImageWithAI}
-                  disabled={loadingImageAI}
-                  style={{
-                    ...secondaryButton,
-                    background: loadingImageAI ? "#555" : "var(--accent)",
-                    color: "#111",
-                    fontWeight: "700",
-                    marginTop: 0,
-                    cursor: loadingImageAI ? "not-allowed" : "pointer",
-                  }}
-                >
-                  {loadingImageAI
-                    ? "🤖 Reading Recipe..."
-                    : "✨ Analyze Recipe with AI"}
-                </button>
+                {hasAiAccess ? (
+                  <button
+                    type="button"
+                    onClick={analyzeRecipeImageWithAI}
+                    disabled={loadingImageAI}
+                    style={{
+                      ...secondaryButton,
+                      background: loadingImageAI ? "#555" : "var(--accent)",
+                      color: "#111",
+                      fontWeight: "700",
+                      marginTop: 0,
+                      cursor: loadingImageAI ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {loadingImageAI ? "🤖 Reading Recipe..." : "✨ Analyze Recipe with AI"}
+                  </button>
+                ) : (
+                  <p style={{ color: "#c9b9c0", margin: "6px 0" }}>
+                    AI recipe import is available on Pro. The selected image is temporary and will not be saved to the recipe.
+                  </p>
+                )}
 
                 <button
                   type="button"
@@ -1800,7 +1817,7 @@ ${JSON.stringify(cleanCurrentSteps)}`,
             marginBottom: "25px",
           }}
         >
-          <button
+          {hasAiAccess && <button
             type="button"
             onClick={improveDescriptionWithAI}
             disabled={loadingAIDesc}
@@ -1811,9 +1828,9 @@ ${JSON.stringify(cleanCurrentSteps)}`,
             }}
           >
             {loadingAIDesc ? "Improving..." : "✨ Optimize Description with AI"}
-          </button>
+          </button>}
 
-          {aiDescription && (
+          {hasAiAccess && aiDescription && (
             <div style={aiBoxStyle}>
               <h4
                 style={{
@@ -2019,6 +2036,7 @@ ${JSON.stringify(cleanCurrentSteps)}`,
             })}
           </div>
 
+          {isAdmin && (
           <div
             style={{
               display: "flex",
@@ -2062,6 +2080,7 @@ ${JSON.stringify(cleanCurrentSteps)}`,
               Add
             </button>
           </div>
+          )}
         </div>
 
         {/* ================================================== */}
@@ -2184,7 +2203,7 @@ ${JSON.stringify(cleanCurrentSteps)}`,
               Add Step
             </button>
 
-            <button
+            {hasAiAccess && <button
               type="button"
               onClick={improveStepsWithAI}
               disabled={loadingAI}
@@ -2195,10 +2214,10 @@ ${JSON.stringify(cleanCurrentSteps)}`,
               }}
             >
               {loadingAI ? "Cleaning..." : "✨ Clean Steps with AI"}
-            </button>
+            </button>}
           </div>
 
-          {aiSteps && (
+          {hasAiAccess && aiSteps && (
             <div style={aiBoxStyle}>
               <h4
                 style={{

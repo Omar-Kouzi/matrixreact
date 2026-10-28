@@ -8,6 +8,8 @@ import {
   deleteDoc,
   getDocs,
   setDoc,
+  query,
+  where,
 } from "firebase/firestore";
 
 /**
@@ -103,6 +105,34 @@ export const deleteUser = (uid) => deleteDocument("users", uid);
 export const addRecipe = (data) => addDocument("recipes", data);
 export const getRecipe = (id) => getDocument("recipes", id);
 export const getRecipes = () => getAllDocuments("recipes");
+
+// Rule-compatible recipe queries: member collections are private by default.
+export const getUserRecipes = async (uid) => {
+  if (!uid) return [];
+  const recipeCollection = getCollectionRef("recipes");
+  const [byAuthor, byCreator] = await Promise.all([
+    getDocs(query(recipeCollection, where("authorId", "==", uid))),
+    getDocs(query(recipeCollection, where("createdBy", "==", uid))),
+  ]);
+  const recipesById = new Map();
+  for (const snapshot of [byAuthor, byCreator]) {
+    snapshot.docs.forEach((recipeDoc) => {
+      recipesById.set(recipeDoc.id, { id: recipeDoc.id, ...recipeDoc.data() });
+    });
+  }
+  return [...recipesById.values()];
+};
+
+export const getPublicRecipes = async () => {
+  const recipeCollection = getCollectionRef("recipes");
+  const snapshot = await getDocs(query(
+    recipeCollection,
+    where("status", "==", "approved"),
+    where("visibility", "==", "public"),
+  ));
+  return snapshot.docs.map((recipeDoc) => ({ id: recipeDoc.id, ...recipeDoc.data() }));
+};
+
 export const updateRecipe = (id, data) => updateDocument("recipes", id, data);
 export const deleteRecipe = (id) => deleteDocument("recipes", id);
 /**

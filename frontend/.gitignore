@@ -22,3 +22,10 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Vercel local project metadata
+.vercel
+
+# Firebase service-account credentials
+*-service-account*.json
+serviceAccount*.json
